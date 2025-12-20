@@ -93,4 +93,12 @@ describe("generateVirtualModule", () => {
 		expect(result).toContain("import.meta.glob('/public-dir/**/*.cgi.{tsx,jsx}'");
 		expect(result).toMatch(/new RegExp\(['"]\^[\/\\]+public-dir['"]\)/);
 	});
+
+	it("should properly escape .htpasswd and .htaccess in regex patterns", () => {
+		const result = generateVirtualModule({});
+		
+		// Check that .htpasswd and .htaccess are properly escaped in regex
+		expect(result).toContain(".replace(/\\.htpasswd$/");
+		expect(result).toContain(".replace(/\\.htaccess$/");
+	});
 });

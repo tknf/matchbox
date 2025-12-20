@@ -17,13 +17,13 @@ export const generateVirtualModule = ({
 		});
 
 		export const authMap = Object.keys(htpasswds).reduce((acc, key) => {
-			const dir = key.replace(new RegExp('^\\\/${publicDir}'), '').replace(//.htpasswd$/, '') || '/';
+			const dir = key.replace(new RegExp('^\\\/${publicDir}'), '').replace(/\\.htpasswd$/, '') || '/';
 			acc[dir] = htpasswds[key];
 			return acc;
 		}, {});
 
 		export const rewriteMap = Object.keys(htaccessFiles).reduce((acc, key) => {
-			const dir = key.replace(new RegExp('^\\\/${publicDir}'), '').replace(//.htaccess$/, '') || '/';
+			const dir = key.replace(new RegExp('^\\\/${publicDir}'), '').replace(/\\.htaccess$/, '') || '/';
 			const lines = htaccessFiles[key].split('\\n');
 			const rules = lines.map(line => {
 				const l = line.trim();
