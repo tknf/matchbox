@@ -3,27 +3,27 @@ export const generateVirtualModule = ({
 	config = {},
 }): string => {
 	return `
-		const modules = import.meta.glob('./${publicDir}/**/*.cgi.{tsx,jsx}', { eager: true });
-		const urls = import.meta.glob('./${publicDir}/**/*.cgi.{tsx,jsx}', { eager: true, query: '?url', import: 'default' });
-		const htpasswds = import.meta.glob('./${publicDir}/**/.htpasswd', { eager: true, query: '?raw', import: 'default' });
-		const htaccessFiles = import.meta.glob('./${publicDir}/**/.htaccess', { eager: true, query: '?raw', import: 'default' });
+		const modules = import.meta.glob('/${publicDir}/**/*.cgi.{tsx,jsx}', { eager: true });
+		const urls = import.meta.glob('/${publicDir}/**/*.cgi.{tsx,jsx}', { eager: true, query: '?url', import: 'default' });
+		const htpasswds = import.meta.glob('/${publicDir}/**/.htpasswd', { eager: true, query: '?raw', import: 'default' });
+		const htaccessFiles = import.meta.glob('/${publicDir}/**/.htaccess', { eager: true, query: '?raw', import: 'default' });
 
 		export const pages = Object.keys(modules).map(key => {
 			const rawUrl = urls[key];
-			const urlPath = rawUrl.replace(new RegExp('^\\/?${publicDir}'), '').replace(/.tsx$/, '').replace(/.jsx$/, '');
+			const urlPath = rawUrl.replace(new RegExp('^\\\/${publicDir}'), '').replace(/.tsx$/, '').replace(/.jsx$/, '');
 			const isIndex = urlPath.endsWith('/index.cgi') || urlPath === '/index.cgi';
 			const dirPath = isIndex ? urlPath.replace(/\\/index\\.cgi$/, '/') : null;
 			return { urlPath, dirPath, component: modules[key].default };
 		});
 
 		export const authMap = Object.keys(htpasswds).reduce((acc, key) => {
-			const dir = key.replace(new RegExp('^\\/?${publicDir}'), '').replace(//.htpasswd$/, '') || '/';
+			const dir = key.replace(new RegExp('^\\\/${publicDir}'), '').replace(//.htpasswd$/, '') || '/';
 			acc[dir] = htpasswds[key];
 			return acc;
 		}, {});
 
 		export const rewriteMap = Object.keys(htaccessFiles).reduce((acc, key) => {
-			const dir = key.replace(new RegExp('^\\/?${publicDir}'), '').replace(//.htaccess$/, '') || '/';
+			const dir = key.replace(new RegExp('^\\\/${publicDir}'), '').replace(//.htaccess$/, '') || '/';
 			const lines = htaccessFiles[key].split('\\n');
 			const rules = lines.map(line => {
 				const l = line.trim();
