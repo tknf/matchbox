@@ -1,4 +1,4 @@
-import { createCgiWithPages, type Page, type RewriteMap } from "./cgi";
+import { createCgiWithPages, type Page, type RewriteMap, type MatchboxOptions } from "./cgi";
 
 declare const __MATCHBOX_CONFIG__: Record<string, any> | undefined;
 
@@ -16,6 +16,22 @@ const loadPagesFromPublic = () => {
 		query: "?raw",
 		import: "default",
 	});
+	const htdigestFiles = import.meta.glob("/public/**/.htdigest", {
+		eager: true,
+		query: "?raw",
+		import: "default",
+	});
+	const htgroupFiles = import.meta.glob("/public/**/.htgroup", {
+		eager: true,
+		query: "?raw",
+		import: "default",
+	});
+
+	// Note: .htdigest and .htgroup files are loaded but not yet implemented
+	// These will be used for digest authentication and group-based authorization
+	// in future versions. For now, they are just prevented from being served.
+	void htdigestFiles;
+	void htgroupFiles;
 
 	const basePathRegex = /^\/public/;
 
@@ -74,9 +90,9 @@ const loadPagesFromPublic = () => {
 	return { pages, authMap, rewriteMap };
 };
 
-export const createCgi = () => {
+export const createCgi = (options?: MatchboxOptions) => {
 	const resolvedConfig =
 		typeof __MATCHBOX_CONFIG__ === "undefined" ? {} : __MATCHBOX_CONFIG__;
 	const { pages, authMap, rewriteMap } = loadPagesFromPublic();
-	return createCgiWithPages(pages, resolvedConfig, authMap, rewriteMap);
+	return createCgiWithPages(pages, resolvedConfig, authMap, rewriteMap, options);
 };

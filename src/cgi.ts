@@ -13,6 +13,30 @@ import { generateCgiError, generateCgiInfo } from "./html";
 export type ConfigObject = Record<string, any>;
 
 /**
+ * --- Matchbox Options ---
+ */
+export interface MatchboxOptions {
+	/** Session cookie name (default: "_SESSION_ID") */
+	sessionCookieName?: string;
+	/** Session cookie path (default: "/") */
+	sessionCookiePath?: string;
+	/** Session cookie domain */
+	sessionCookieDomain?: string;
+	/** Session cookie secure flag (default: false) */
+	sessionCookieSecure?: boolean;
+	/** Session cookie SameSite attribute (default: "Lax") */
+	sessionCookieSameSite?: "Strict" | "Lax" | "None";
+	/** Session cookie max age in seconds */
+	sessionCookieMaxAge?: number;
+	/** Enforce trailing slash on URLs */
+	enforceTrailingSlash?: boolean;
+	/** Custom middleware functions */
+	middleware?: Array<(c: Context, next: () => Promise<void>) => Promise<Response | undefined>>;
+	/** Custom logging function */
+	logger?: (message: string, level?: "info" | "warn" | "error") => void;
+}
+
+/**
  * --- Matchbox CGI Environment Types ---
  */
 export interface CgiContext<ConfigType = ConfigObject> {
@@ -49,8 +73,7 @@ export interface CgiContext<ConfigType = ConfigObject> {
 	response_headers: () => Record<string, string>;
 	log: (message: string) => void;
 	get_version: () => string;
-	// TODO: implement module listing
-	get_modules: () => void;
+	get_modules: () => Array<{ urlPath: string; dirPath: string | null }>;
 }
 
 export type Page = {
@@ -95,9 +118,38 @@ export const createCgiWithPages = (
 	siteConfig: ConfigObject = {},
 	authMap: Record<string, string> = {},
 	rewriteMap: RewriteMap = {},
+	options: MatchboxOptions = {},
 ) => {
 	const app = new Hono();
-	const SESS_KEY = "_SESSION_ID";
+	const SESS_KEY = options.sessionCookieName || "_SESSION_ID";
+	
+	// Apply custom middleware if provided
+	if (options.middleware && options.middleware.length > 0) {
+		for (const mw of options.middleware) {
+			app.use("*", mw);
+		}
+	}
+	
+	// Prevent access to .htaccess and .htpasswd files during development
+	app.use("*", async (c, next) => {
+		const path = c.req.path;
+		if (path.endsWith("/.htaccess") || path.endsWith("/.htpasswd") || 
+		    path.endsWith("/.htdigest") || path.endsWith("/.htgroup")) {
+			return c.text("Forbidden", 403);
+		}
+		await next();
+	});
+	
+	// Enforce trailing slash if configured
+	if (options.enforceTrailingSlash) {
+		app.use("*", async (c, next) => {
+			const path = c.req.path;
+			if (!path.endsWith("/") && !path.includes(".")) {
+				return c.redirect(`${path}/`, 301);
+			}
+			await next();
+		});
+	}
 
 	// 1. Rewrite / Redirect Middleware
 	Object.entries(rewriteMap).forEach(([dir, rules]) => {
@@ -259,24 +311,49 @@ export const createCgiWithPages = (
 						return responseHeaders;
 					},
 					log: (message: string) => {
-						console.log(`[CGI LOG] ${message}`);
+						if (options.logger) {
+							options.logger(message, "info");
+						} else {
+							console.log(`[CGI LOG] ${message}`);
+						}
 					},
 					get_version: () => {
-						return `MachboxCGI/v${packageJson.version}`;
+						return `MatchboxCGI/v${packageJson.version}`;
 					},
 					get_modules: () => {
-						throw new Error("Not implemented");
+						// Return list of loaded CGI modules
+						return pages.map((page) => ({
+							urlPath: page.urlPath,
+							dirPath: page.dirPath,
+						}));
 					},
 				};
 
 				try {
 					const result = await component(context);
 					const sessionValue = encodeURIComponent(JSON.stringify($_SESSION));
-					const sessionOptions = {
-						path: "/",
+					const sessionOptions: {
+						path: string;
+						httpOnly: boolean;
+						sameSite: "Strict" | "Lax" | "None";
+						secure?: boolean;
+						domain?: string;
+						maxAge?: number;
+					} = {
+						path: options.sessionCookiePath || "/",
 						httpOnly: true,
-						sameSite: "Lax" as const,
+						sameSite: options.sessionCookieSameSite || "Lax",
 					};
+					
+					if (options.sessionCookieSecure !== undefined) {
+						sessionOptions.secure = options.sessionCookieSecure;
+					}
+					if (options.sessionCookieDomain) {
+						sessionOptions.domain = options.sessionCookieDomain;
+					}
+					if (options.sessionCookieMaxAge) {
+						sessionOptions.maxAge = options.sessionCookieMaxAge;
+					}
 
 					// Redirect
 					if (isRedirectObject(result)) {

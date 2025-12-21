@@ -28,7 +28,12 @@ describe("MatchboxPlugin", () => {
 			ssr: {
 				noExternal: ["matchbox"],
 			},
-			assetsInclude: ["static/**/.htpasswd", "static/**/.htaccess"],
+			assetsInclude: [
+				"static/**/.htpasswd",
+				"static/**/.htaccess",
+				"static/**/.htdigest",
+				"static/**/.htgroup",
+			],
 			publicDir: "static",
 			esbuild: {
 				jsxImportSource: "hono/jsx",
@@ -52,6 +57,8 @@ describe("MatchboxPlugin", () => {
 			path.join(outDir, "page.cgi.jsx"),
 			path.join(outDir, ".htpasswd"),
 			path.join(outDir, ".htaccess"),
+			path.join(outDir, ".htdigest"),
+			path.join(outDir, ".htgroup"),
 			path.join(outDir, "nested", "nested.cgi.tsx"),
 		];
 

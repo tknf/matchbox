@@ -29,10 +29,12 @@ export const MatchboxPlugin = (options: MatchboxPluginOptions = {}): Plugin => {
 				ssr: {
 					noExternal: ["matchbox"],
 				},
-				// .htpasswd, .htaccess files in /public should be treated as raw assets
+				// .htpasswd, .htaccess, .htdigest, .htgroup files in /public should be treated as raw assets
 				assetsInclude: [
 					`${publicDir}/**/.htpasswd`,
 					`${publicDir}/**/.htaccess`,
+					`${publicDir}/**/.htdigest`,
+					`${publicDir}/**/.htgroup`,
 				],
 				publicDir: publicDir,
 				esbuild: {
@@ -61,7 +63,9 @@ export const MatchboxPlugin = (options: MatchboxPluginOptions = {}): Plugin => {
 						file.includes(".cgi.tsx") ||
 						file.includes(".cgi.jsx") ||
 						file === ".htpasswd" ||
-						file === ".htaccess"
+						file === ".htaccess" ||
+						file === ".htdigest" ||
+						file === ".htgroup"
 					) {
 						fs.unlinkSync(fullPath);
 					}
