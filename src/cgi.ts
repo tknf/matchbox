@@ -150,10 +150,11 @@ export const createCgiWithPages = (
 	}
 	
 	// Prevent access to sensitive configuration files
-	const protectedFiles = ["/.htaccess", "/.htpasswd", "/.htdigest", "/.htgroup"];
+	const protectedFiles = [".htaccess", ".htpasswd", ".htdigest", ".htgroup"];
 	app.use("*", async (c, next) => {
 		const path = c.req.path;
-		if (protectedFiles.some(file => path.endsWith(file))) {
+		const lastSegment = path.slice(path.lastIndexOf("/") + 1);
+		if (protectedFiles.some((file) => lastSegment === file)) {
 			return c.text("Forbidden", 403);
 		}
 		await next();
