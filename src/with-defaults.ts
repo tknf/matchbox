@@ -16,22 +16,21 @@ const loadPagesFromPublic = () => {
 		query: "?raw",
 		import: "default",
 	});
+	
+	// Note: .htdigest and .htgroup files are loaded for future implementation
+	// They are currently used only for build-time inclusion and runtime blocking
+	// biome-ignore lint/correctness/noUnusedVariables: Reserved for future digest auth implementation
 	const htdigestFiles = import.meta.glob("/public/**/.htdigest", {
 		eager: true,
 		query: "?raw",
 		import: "default",
 	});
+	// biome-ignore lint/correctness/noUnusedVariables: Reserved for future group-based auth implementation
 	const htgroupFiles = import.meta.glob("/public/**/.htgroup", {
 		eager: true,
 		query: "?raw",
 		import: "default",
 	});
-
-	// Note: .htdigest and .htgroup files are loaded but not yet implemented
-	// These will be used for digest authentication and group-based authorization
-	// in future versions. For now, they are just prevented from being served.
-	void htdigestFiles;
-	void htgroupFiles;
 
 	const basePathRegex = /^\/public/;
 

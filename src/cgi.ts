@@ -37,6 +37,16 @@ export interface MatchboxOptions {
 }
 
 /**
+ * --- Module Information ---
+ */
+export interface ModuleInfo {
+	/** URL path where the module is accessible */
+	urlPath: string;
+	/** Directory path for index modules, null otherwise */
+	dirPath: string | null;
+}
+
+/**
  * --- Matchbox CGI Environment Types ---
  */
 export interface CgiContext<ConfigType = ConfigObject> {
@@ -73,7 +83,8 @@ export interface CgiContext<ConfigType = ConfigObject> {
 	response_headers: () => Record<string, string>;
 	log: (message: string) => void;
 	get_version: () => string;
-	get_modules: () => Array<{ urlPath: string; dirPath: string | null }>;
+	/** Get list of all loaded CGI modules */
+	get_modules: () => ModuleInfo[];
 }
 
 export type Page = {
@@ -130,11 +141,11 @@ export const createCgiWithPages = (
 		}
 	}
 	
-	// Prevent access to .htaccess and .htpasswd files during development
+	// Prevent access to sensitive configuration files
+	const protectedFiles = ["/.htaccess", "/.htpasswd", "/.htdigest", "/.htgroup"];
 	app.use("*", async (c, next) => {
 		const path = c.req.path;
-		if (path.endsWith("/.htaccess") || path.endsWith("/.htpasswd") || 
-		    path.endsWith("/.htdigest") || path.endsWith("/.htgroup")) {
+		if (protectedFiles.some(file => path.endsWith(file))) {
 			return c.text("Forbidden", 403);
 		}
 		await next();
@@ -320,8 +331,11 @@ export const createCgiWithPages = (
 					get_version: () => {
 						return `MatchboxCGI/v${packageJson.version}`;
 					},
-					get_modules: () => {
-						// Return list of loaded CGI modules
+					/**
+					 * Returns information about all loaded CGI modules
+					 * @returns Array of module information containing urlPath and dirPath
+					 */
+					get_modules: (): ModuleInfo[] => {
 						return pages.map((page) => ({
 							urlPath: page.urlPath,
 							dirPath: page.dirPath,
