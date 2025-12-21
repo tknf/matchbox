@@ -8,20 +8,22 @@ All 5 uncompleted items from `docs/todo.md` have been successfully implemented:
 
 ### 1. ✅ Session Cookie Configuration Options
 - Added `MatchboxOptions` interface with comprehensive session cookie configuration
-- Configurable options include:
-  - `sessionCookieName`: Custom cookie name (default: "_SESSION_ID")
-  - `sessionCookiePath`: Custom cookie path (default: "/")
-  - `sessionCookieDomain`: Cookie domain
-  - `sessionCookieSecure`: Secure flag for HTTPS
-  - `sessionCookieSameSite`: CSRF protection ("Strict" | "Lax" | "None")
-  - `sessionCookieMaxAge`: Session timeout in seconds
+- Configurable options via `sessionCookie` object include:
+  - `name`: Custom cookie name (default: "_SESSION_ID")
+  - `path`: Custom cookie path (default: "/")
+  - `domain`: Cookie domain
+  - `secure`: Secure flag for HTTPS
+  - `sameSite`: CSRF protection ("Strict" | "Lax" | "None")
+  - `maxAge`: Session timeout in seconds
 
 Example usage:
 ```typescript
 createCgi({
-  sessionCookieSecure: true,
-  sessionCookieSameSite: "Strict",
-  sessionCookieMaxAge: 3600,
+  sessionCookie: {
+    secure: true,
+    sameSite: "Strict",
+    maxAge: 3600,
+  }
 });
 ```
 

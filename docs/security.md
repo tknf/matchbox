@@ -14,13 +14,15 @@ Session cookies are configured with secure defaults:
 Example configuration:
 ```typescript
 createCgi({
-  sessionCookieSecure: true,      // Enable for HTTPS in production
-  sessionCookieSameSite: "Strict", // Stricter CSRF protection
-  sessionCookieMaxAge: 3600,       // 1 hour session timeout
+  sessionCookie: {
+    secure: true,      // Enable for HTTPS in production
+    sameSite: "Strict", // Stricter CSRF protection
+    maxAge: 3600,       // 1 hour session timeout
+  }
 });
 ```
 
-**Recommendation**: Always set `sessionCookieSecure: true` in production when using HTTPS.
+**Recommendation**: Always set `sessionCookie.secure: true` in production when using HTTPS.
 
 ### 2. Protection Against Direct Access to Configuration Files
 
@@ -49,9 +51,9 @@ Built-in support for HTTP Basic Authentication through `.htpasswd` files:
 
 ### 1. Session Management
 
-- Use `sessionCookieSecure: true` in production
-- Set appropriate `sessionCookieMaxAge` to limit session lifetime
-- Consider using `sessionCookieSameSite: "Strict"` for high-security applications
+- Use `sessionCookie.secure: true` in production
+- Set appropriate `sessionCookie.maxAge` to limit session lifetime
+- Consider using `sessionCookie.sameSite: "Strict"` for high-security applications
 
 ### 2. Error Handling
 

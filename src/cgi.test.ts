@@ -463,7 +463,9 @@ describe("createCgi", () => {
 	it("supports custom session cookie name", async () => {
 		const { pages, authMap, rewriteMap } = loadProject("basic");
 		const app = createCgiWithPages(pages, {}, authMap, rewriteMap, {
-			sessionCookieName: "_CUSTOM_SESSION",
+			sessionCookie: {
+				name: "_CUSTOM_SESSION",
+			},
 		});
 
 		const res = await app.request("/test.cgi");
@@ -475,10 +477,12 @@ describe("createCgi", () => {
 	it("supports custom session cookie options", async () => {
 		const { pages, authMap, rewriteMap } = loadProject("basic");
 		const app = createCgiWithPages(pages, {}, authMap, rewriteMap, {
-			sessionCookiePath: "/admin",
-			sessionCookieSameSite: "Strict",
-			sessionCookieSecure: true,
-			sessionCookieMaxAge: 3600,
+			sessionCookie: {
+				path: "/admin",
+				sameSite: "Strict",
+				secure: true,
+				maxAge: 3600,
+			},
 		});
 
 		const res = await app.request("/test.cgi");

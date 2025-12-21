@@ -13,21 +13,29 @@ import { generateCgiError, generateCgiInfo } from "./html";
 export type ConfigObject = Record<string, any>;
 
 /**
+ * --- Session Cookie Configuration ---
+ */
+export interface SessionCookieOptions {
+	/** Session cookie name (default: "_SESSION_ID") */
+	name?: string;
+	/** Session cookie path (default: "/") */
+	path?: string;
+	/** Session cookie domain */
+	domain?: string;
+	/** Session cookie secure flag (default: false) */
+	secure?: boolean;
+	/** Session cookie SameSite attribute (default: "Lax") */
+	sameSite?: "Strict" | "Lax" | "None";
+	/** Session cookie max age in seconds */
+	maxAge?: number;
+}
+
+/**
  * --- Matchbox Options ---
  */
 export interface MatchboxOptions {
-	/** Session cookie name (default: "_SESSION_ID") */
-	sessionCookieName?: string;
-	/** Session cookie path (default: "/") */
-	sessionCookiePath?: string;
-	/** Session cookie domain */
-	sessionCookieDomain?: string;
-	/** Session cookie secure flag (default: false) */
-	sessionCookieSecure?: boolean;
-	/** Session cookie SameSite attribute (default: "Lax") */
-	sessionCookieSameSite?: "Strict" | "Lax" | "None";
-	/** Session cookie max age in seconds */
-	sessionCookieMaxAge?: number;
+	/** Session cookie configuration */
+	sessionCookie?: SessionCookieOptions;
 	/** Enforce trailing slash on URLs */
 	enforceTrailingSlash?: boolean;
 	/** Custom middleware functions */
@@ -132,7 +140,7 @@ export const createCgiWithPages = (
 	options: MatchboxOptions = {},
 ) => {
 	const app = new Hono();
-	const SESS_KEY = options.sessionCookieName || "_SESSION_ID";
+	const SESS_KEY = options.sessionCookie?.name || "_SESSION_ID";
 	
 	// Apply custom middleware if provided
 	if (options.middleware && options.middleware.length > 0) {
@@ -354,19 +362,19 @@ export const createCgiWithPages = (
 						domain?: string;
 						maxAge?: number;
 					} = {
-						path: options.sessionCookiePath || "/",
+						path: options.sessionCookie?.path || "/",
 						httpOnly: true,
-						sameSite: options.sessionCookieSameSite || "Lax",
+						sameSite: options.sessionCookie?.sameSite || "Lax",
 					};
 					
-					if (options.sessionCookieSecure !== undefined) {
-						sessionOptions.secure = options.sessionCookieSecure;
+					if (options.sessionCookie?.secure !== undefined) {
+						sessionOptions.secure = options.sessionCookie.secure;
 					}
-					if (options.sessionCookieDomain) {
-						sessionOptions.domain = options.sessionCookieDomain;
+					if (options.sessionCookie?.domain) {
+						sessionOptions.domain = options.sessionCookie.domain;
 					}
-					if (options.sessionCookieMaxAge) {
-						sessionOptions.maxAge = options.sessionCookieMaxAge;
+					if (options.sessionCookie?.maxAge) {
+						sessionOptions.maxAge = options.sessionCookie.maxAge;
 					}
 
 					// Redirect
