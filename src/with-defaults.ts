@@ -17,16 +17,16 @@ const loadPagesFromPublic = () => {
 		import: "default",
 	});
 	
-	// Note: .htdigest and .htgroup files are loaded for future implementation
-	// They are currently used only for build-time inclusion and runtime blocking
-	// biome-ignore lint/correctness/noUnusedVariables: Reserved for future digest auth implementation
-	const htdigestFiles = import.meta.glob("/public/**/.htdigest", {
+	// Note: .htdigest and .htgroup files are loaded for future implementation.
+	// They are currently used only for build-time inclusion and runtime blocking.
+	// We intentionally discard the result to avoid unused-variable warnings while
+	// still ensuring these files are included by the bundler.
+	void import.meta.glob("/public/**/.htdigest", {
 		eager: true,
 		query: "?raw",
 		import: "default",
 	});
-	// biome-ignore lint/correctness/noUnusedVariables: Reserved for future group-based auth implementation
-	const htgroupFiles = import.meta.glob("/public/**/.htgroup", {
+	void import.meta.glob("/public/**/.htgroup", {
 		eager: true,
 		query: "?raw",
 		import: "default",

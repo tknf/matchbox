@@ -145,7 +145,13 @@ export const createCgiWithPages = (
 	// Apply custom middleware if provided
 	if (options.middleware && options.middleware.length > 0) {
 		for (const mw of options.middleware) {
-			app.use("*", mw);
+			app.use("*", async (c, next) => {
+				const result = await mw(c, next);
+				// If middleware returns a Response, return it immediately (early return)
+				if (result instanceof Response) {
+					return result;
+				}
+			});
 		}
 	}
 	

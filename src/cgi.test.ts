@@ -460,6 +460,33 @@ describe("createCgi", () => {
 		expect(text).toBe("Forbidden");
 	});
 
+	it("allows access to files containing protected filenames in their name", async () => {
+		const app = createApp("basic");
+
+		// These should NOT be blocked - they just contain the protected filename
+		const res1 = await app.request("/myfile.htaccess");
+		expect(res1.status).not.toBe(403);
+
+		const res2 = await app.request("/.htaccess.backup");
+		expect(res2.status).not.toBe(403);
+	});
+
+	it("prevents access to protected files in nested paths", async () => {
+		const app = createApp("basic");
+
+		const res1 = await app.request("/deeply/nested/path/.htaccess");
+		expect(res1.status).toBe(403);
+
+		const res2 = await app.request("/admin/config/.htpasswd");
+		expect(res2.status).toBe(403);
+
+		const res3 = await app.request("/auth/.htdigest");
+		expect(res3.status).toBe(403);
+
+		const res4 = await app.request("/groups/.htgroup");
+		expect(res4.status).toBe(403);
+	});
+
 	it("supports custom session cookie name", async () => {
 		const { pages, authMap, rewriteMap } = loadProject("basic");
 		const app = createCgiWithPages(pages, {}, authMap, rewriteMap, {
@@ -517,22 +544,14 @@ describe("createCgi", () => {
 			},
 		});
 
-		await app.request("/data.cgi?from=query", {
-			method: "POST",
-			headers: {
-				"Content-Type": "application/x-www-form-urlencoded",
-			},
-			body: new URLSearchParams({ from: "post" }),
-		});
+		await app.request("/logger.cgi");
 
-		// The data.cgi file should log something if it calls context.log
-		// But since it doesn't, we'll check that the logger is being used
-		expect(logs.length).toBeGreaterThanOrEqual(0);
+		expect(logs.length).toBe(1);
+		expect(logs[0]).toBe("Test log message");
 	});
 
 	it("returns module list from get_modules", async () => {
 		const { pages, authMap, rewriteMap } = loadProject("basic");
-		const app = createCgiWithPages(pages, {}, authMap, rewriteMap);
 
 		// Create a test page that uses get_modules
 		const testPages = [
@@ -564,5 +583,57 @@ describe("createCgi", () => {
 		const res = await app.request("/dir", { redirect: "manual" });
 		expect(res.status).toBe(301);
 		expect(res.headers.get("location")).toBe("/dir/");
+	});
+
+	it("does not redirect paths with dots when trailing slash is enforced", async () => {
+		const { pages, authMap, rewriteMap } = loadProject("basic");
+		const app = createCgiWithPages(pages, {}, authMap, rewriteMap, {
+			enforceTrailingSlash: true,
+		});
+
+		// Should not redirect file-like paths
+		const res = await app.request("/test.cgi");
+		expect(res.status).not.toBe(301);
+	});
+
+	it("does not redirect paths with version numbers when trailing slash is enforced", async () => {
+		const { pages, authMap, rewriteMap } = loadProject("basic");
+		const app = createCgiWithPages(pages, {}, authMap, rewriteMap, {
+			enforceTrailingSlash: true,
+		});
+
+		// Paths like /api/v1.0 should not be redirected
+		const res = await app.request("/api/v1.0/users", { redirect: "manual" });
+		// This will 404 because the path doesn't exist, but shouldn't redirect
+		expect(res.status).not.toBe(301);
+	});
+
+	it("does not redirect paths that already have trailing slash", async () => {
+		const { pages, authMap, rewriteMap } = loadProject("basic");
+		const app = createCgiWithPages(pages, {}, authMap, rewriteMap, {
+			enforceTrailingSlash: true,
+		});
+
+		const res = await app.request("/dir/", { redirect: "manual" });
+		expect(res.status).not.toBe(301);
+	});
+
+	it("supports middleware with early return", async () => {
+		const { pages, authMap, rewriteMap } = loadProject("basic");
+		const app = createCgiWithPages(pages, {}, authMap, rewriteMap, {
+			middleware: [
+				async (c) => {
+					// Middleware returns Response directly (early return)
+					if (c.req.path === "/early-return") {
+						return new Response("Early return", { status: 200 });
+					}
+				},
+			],
+		});
+
+		const res = await app.request("/early-return");
+		expect(res.status).toBe(200);
+		const text = await res.text();
+		expect(text).toBe("Early return");
 	});
 });
