@@ -26,9 +26,8 @@ export const MatchboxPlugin = (options: MatchboxPluginOptions = {}): Plugin => {
 
 		config() {
 			return {
-				// .cgi.tsx, .htpasswd, .htaccess files in /public
+				// .htpasswd, .htaccess files in /public should be treated as raw assets
 				assetsInclude: [
-					`${publicDir}/**/*.cgi.{(j|t)sx}`,
 					`${publicDir}/**/.htpasswd`,
 					`${publicDir}/**/.htaccess`,
 				],
