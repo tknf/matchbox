@@ -50,6 +50,7 @@ export const generateCgiError = ({
 	error,
 	$_SERVER,
 }: {
+	// biome-ignore lint/suspicious/noExplicitAny: error can be any
 	error: any;
 	$_SERVER: CgiContext["$_SERVER"];
 }) => {

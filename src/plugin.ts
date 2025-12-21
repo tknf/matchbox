@@ -1,7 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
 import type { Plugin, ResolvedConfig } from "vite";
-import { generateVirtualModule } from "./virtual";
 
 /**
  * --- Matchbox Plugin Options ---
@@ -16,8 +15,6 @@ export interface MatchboxPluginOptions {
  */
 export const MatchboxPlugin = (options: MatchboxPluginOptions = {}): Plugin => {
 	let viteConfig: ResolvedConfig;
-	const virtualModuleId = "virtual:matchbox-pages";
-	const resolvedvirtualModuleId = "\0" + virtualModuleId;
 	const siteConfig = options.config || {};
 	const publicDir = options.publicDir || "public";
 
@@ -26,6 +23,12 @@ export const MatchboxPlugin = (options: MatchboxPluginOptions = {}): Plugin => {
 
 		config() {
 			return {
+				optimizeDeps: {
+					exclude: ["matchbox"],
+				},
+				ssr: {
+					noExternal: ["matchbox"],
+				},
 				// .htpasswd, .htaccess files in /public should be treated as raw assets
 				assetsInclude: [
 					`${publicDir}/**/.htpasswd`,
@@ -36,23 +39,14 @@ export const MatchboxPlugin = (options: MatchboxPluginOptions = {}): Plugin => {
 					jsxImportSource: "hono/jsx",
 					jsx: "automatic",
 				},
+				define: {
+					__MATCHBOX_CONFIG__: JSON.stringify(siteConfig),
+				},
 			};
 		},
 
 		configResolved(resolvedConfig) {
 			viteConfig = resolvedConfig;
-		},
-
-		resolveId(id) {
-			if (id === virtualModuleId) {
-				return resolvedvirtualModuleId;
-			}
-		},
-
-		load(id) {
-			if (id === resolvedvirtualModuleId) {
-				return generateVirtualModule({ publicDir, config: siteConfig });
-			}
 		},
 
 		closeBundle() {

@@ -7,8 +7,11 @@
 	"type": "module",
 	"scripts": {
 		"test": "vitest run",
-		"watch": "tsdown --watch",
-		"build": "tsdown --format esm,cjs --dts"
+		"test:coverage": "vitest run --coverage",
+		"lint:check": "biome lint check",
+		"format:check": "biome format --check",
+		"watch": "tsup --watch",
+		"build": "tsup"
 	},
 	"files": [
 		"dist"
@@ -43,9 +46,12 @@
 		"@types/node": "^25.0.3",
 		"@vitest/coverage-v8": "^4.0.16",
 		"hono": "^4.11.1",
-		"tsdown": "^0.18.1",
+		"tsup": "^8.5.1",
 		"typescript": "^5.9.3",
 		"vite": "^7.3.0",
 		"vitest": "^4.0.16"
+	},
+	"dependencies": {
+		"glob": "^13.0.0"
 	}
 }

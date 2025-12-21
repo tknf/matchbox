@@ -1,6 +1,5 @@
-import { authMap, config, pages } from "virtual:matchbox-pages";
-import { createCgi } from "../dist/index.mjs";
+import { createCgi } from "../src/index";
 
-const app = createCgi(pages, config, authMap);
+const app = createCgi();
 
 export default app;

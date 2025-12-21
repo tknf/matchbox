@@ -1,0 +1,4 @@
+Redirect 302 /old.cgi /new
+Redirect 302 /other.cgi /new
+RewriteRule ^/legacy.cgi$ /fresh R=307
+RewriteRule ^/no-redirect.cgi$ /ignored
