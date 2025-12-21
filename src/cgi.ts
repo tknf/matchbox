@@ -13,6 +13,48 @@ import { generateCgiError, generateCgiInfo } from "./html";
 export type ConfigObject = Record<string, any>;
 
 /**
+ * --- Session Cookie Configuration ---
+ */
+export interface SessionCookieOptions {
+	/** Session cookie name (default: "_SESSION_ID") */
+	name?: string;
+	/** Session cookie path (default: "/") */
+	path?: string;
+	/** Session cookie domain */
+	domain?: string;
+	/** Session cookie secure flag (default: false) */
+	secure?: boolean;
+	/** Session cookie SameSite attribute (default: "Lax") */
+	sameSite?: "Strict" | "Lax" | "None";
+	/** Session cookie max age in seconds */
+	maxAge?: number;
+}
+
+/**
+ * --- Matchbox Options ---
+ */
+export interface MatchboxOptions {
+	/** Session cookie configuration */
+	sessionCookie?: SessionCookieOptions;
+	/** Enforce trailing slash on URLs */
+	enforceTrailingSlash?: boolean;
+	/** Custom middleware functions */
+	middleware?: Array<(c: Context, next: () => Promise<void>) => Promise<Response | undefined>>;
+	/** Custom logging function */
+	logger?: (message: string, level?: "info" | "warn" | "error") => void;
+}
+
+/**
+ * --- Module Information ---
+ */
+export interface ModuleInfo {
+	/** URL path where the module is accessible */
+	urlPath: string;
+	/** Directory path for index modules, null otherwise */
+	dirPath: string | null;
+}
+
+/**
  * --- Matchbox CGI Environment Types ---
  */
 export interface CgiContext<ConfigType = ConfigObject> {
@@ -49,8 +91,8 @@ export interface CgiContext<ConfigType = ConfigObject> {
 	response_headers: () => Record<string, string>;
 	log: (message: string) => void;
 	get_version: () => string;
-	// TODO: implement module listing
-	get_modules: () => void;
+	/** Get list of all loaded CGI modules */
+	get_modules: () => ModuleInfo[];
 }
 
 export type Page = {
@@ -95,9 +137,45 @@ export const createCgiWithPages = (
 	siteConfig: ConfigObject = {},
 	authMap: Record<string, string> = {},
 	rewriteMap: RewriteMap = {},
+	options: MatchboxOptions = {},
 ) => {
 	const app = new Hono();
-	const SESS_KEY = "_SESSION_ID";
+	const SESS_KEY = options.sessionCookie?.name || "_SESSION_ID";
+	
+	// Apply custom middleware if provided
+	if (options.middleware && options.middleware.length > 0) {
+		for (const mw of options.middleware) {
+			app.use("*", async (c, next) => {
+				const result = await mw(c, next);
+				// If middleware returns a Response, return it immediately (early return)
+				if (result instanceof Response) {
+					return result;
+				}
+			});
+		}
+	}
+	
+	// Prevent access to sensitive configuration files
+	const protectedFiles = [".htaccess", ".htpasswd", ".htdigest", ".htgroup"];
+	app.use("*", async (c, next) => {
+		const path = c.req.path;
+		const lastSegment = path.slice(path.lastIndexOf("/") + 1);
+		if (protectedFiles.some((file) => lastSegment === file)) {
+			return c.text("Forbidden", 403);
+		}
+		await next();
+	});
+	
+	// Enforce trailing slash if configured
+	if (options.enforceTrailingSlash) {
+		app.use("*", async (c, next) => {
+			const path = c.req.path;
+			if (!path.endsWith("/") && !path.includes(".")) {
+				return c.redirect(`${path}/`, 301);
+			}
+			await next();
+		});
+	}
 
 	// 1. Rewrite / Redirect Middleware
 	Object.entries(rewriteMap).forEach(([dir, rules]) => {
@@ -259,24 +337,52 @@ export const createCgiWithPages = (
 						return responseHeaders;
 					},
 					log: (message: string) => {
-						console.log(`[CGI LOG] ${message}`);
+						if (options.logger) {
+							options.logger(message, "info");
+						} else {
+							console.log(`[CGI LOG] ${message}`);
+						}
 					},
 					get_version: () => {
-						return `MachboxCGI/v${packageJson.version}`;
+						return `MatchboxCGI/v${packageJson.version}`;
 					},
-					get_modules: () => {
-						throw new Error("Not implemented");
+					/**
+					 * Returns information about all loaded CGI modules
+					 * @returns Array of module information containing urlPath and dirPath
+					 */
+					get_modules: (): ModuleInfo[] => {
+						return pages.map((page) => ({
+							urlPath: page.urlPath,
+							dirPath: page.dirPath,
+						}));
 					},
 				};
 
 				try {
 					const result = await component(context);
 					const sessionValue = encodeURIComponent(JSON.stringify($_SESSION));
-					const sessionOptions = {
-						path: "/",
+					const sessionOptions: {
+						path: string;
+						httpOnly: boolean;
+						sameSite: "Strict" | "Lax" | "None";
+						secure?: boolean;
+						domain?: string;
+						maxAge?: number;
+					} = {
+						path: options.sessionCookie?.path || "/",
 						httpOnly: true,
-						sameSite: "Lax" as const,
+						sameSite: options.sessionCookie?.sameSite || "Lax",
 					};
+					
+					if (options.sessionCookie?.secure !== undefined) {
+						sessionOptions.secure = options.sessionCookie.secure;
+					}
+					if (options.sessionCookie?.domain) {
+						sessionOptions.domain = options.sessionCookie.domain;
+					}
+					if (options.sessionCookie?.maxAge) {
+						sessionOptions.maxAge = options.sessionCookie.maxAge;
+					}
 
 					// Redirect
 					if (isRedirectObject(result)) {

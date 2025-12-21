@@ -441,4 +441,199 @@ describe("createCgi", () => {
 		expect(text).toContain("Matchbox: Runtime Exception");
 		expect(text).toContain("boom");
 	});
+
+	it("prevents access to .htaccess files", async () => {
+		const app = createApp("basic");
+
+		const res = await app.request("/.htaccess");
+		expect(res.status).toBe(403);
+		const text = await res.text();
+		expect(text).toBe("Forbidden");
+	});
+
+	it("prevents access to .htpasswd files", async () => {
+		const app = createApp("basic");
+
+		const res = await app.request("/admin/.htpasswd");
+		expect(res.status).toBe(403);
+		const text = await res.text();
+		expect(text).toBe("Forbidden");
+	});
+
+	it("allows access to files containing protected filenames in their name", async () => {
+		const app = createApp("basic");
+
+		// These should NOT be blocked - they just contain the protected filename
+		const res1 = await app.request("/myfile.htaccess");
+		expect(res1.status).not.toBe(403);
+
+		const res2 = await app.request("/.htaccess.backup");
+		expect(res2.status).not.toBe(403);
+	});
+
+	it("prevents access to protected files in nested paths", async () => {
+		const app = createApp("basic");
+
+		const res1 = await app.request("/deeply/nested/path/.htaccess");
+		expect(res1.status).toBe(403);
+
+		const res2 = await app.request("/admin/config/.htpasswd");
+		expect(res2.status).toBe(403);
+
+		const res3 = await app.request("/auth/.htdigest");
+		expect(res3.status).toBe(403);
+
+		const res4 = await app.request("/groups/.htgroup");
+		expect(res4.status).toBe(403);
+	});
+
+	it("supports custom session cookie name", async () => {
+		const { pages, authMap, rewriteMap } = loadProject("basic");
+		const app = createCgiWithPages(pages, {}, authMap, rewriteMap, {
+			sessionCookie: {
+				name: "_CUSTOM_SESSION",
+			},
+		});
+
+		const res = await app.request("/test.cgi");
+		expect(res.status).toBe(201);
+		expect(res.headers.get("set-cookie")).toContain("_CUSTOM_SESSION=");
+		expect(res.headers.get("set-cookie")).not.toContain("_SESSION_ID=");
+	});
+
+	it("supports custom session cookie options", async () => {
+		const { pages, authMap, rewriteMap } = loadProject("basic");
+		const app = createCgiWithPages(pages, {}, authMap, rewriteMap, {
+			sessionCookie: {
+				path: "/admin",
+				sameSite: "Strict",
+				secure: true,
+				maxAge: 3600,
+			},
+		});
+
+		const res = await app.request("/test.cgi");
+		const cookie = res.headers.get("set-cookie");
+		expect(cookie).toContain("Path=/admin");
+		expect(cookie).toContain("SameSite=Strict");
+		expect(cookie).toContain("Secure");
+		expect(cookie).toContain("Max-Age=3600");
+	});
+
+	it("supports custom middleware", async () => {
+		const { pages, authMap, rewriteMap } = loadProject("basic");
+		const app = createCgiWithPages(pages, {}, authMap, rewriteMap, {
+			middleware: [
+				async (c, next) => {
+					c.header("X-Custom-Header", "test-value");
+					await next();
+				},
+			],
+		});
+
+		const res = await app.request("/test.cgi");
+		expect(res.headers.get("X-Custom-Header")).toBe("test-value");
+	});
+
+	it("supports custom logger", async () => {
+		const logs: string[] = [];
+		const { pages, authMap, rewriteMap } = loadProject("basic");
+		const app = createCgiWithPages(pages, {}, authMap, rewriteMap, {
+			logger: (message) => {
+				logs.push(message);
+			},
+		});
+
+		await app.request("/logger.cgi");
+
+		expect(logs.length).toBe(1);
+		expect(logs[0]).toBe("Test log message");
+	});
+
+	it("returns module list from get_modules", async () => {
+		const { pages, authMap, rewriteMap } = loadProject("basic");
+
+		// Create a test page that uses get_modules
+		const testPages = [
+			...pages,
+			{
+				urlPath: "/modules.cgi",
+				dirPath: null,
+				component: (ctx: any) => {
+					ctx.header("Content-Type", "application/json");
+					return ctx.get_modules();
+				},
+			},
+		];
+
+		const testApp = createCgiWithPages(testPages, {}, authMap, rewriteMap);
+		const res = await testApp.request("/modules.cgi");
+		const json = await res.json();
+		expect(Array.isArray(json)).toBe(true);
+		expect(json.length).toBeGreaterThan(0);
+		expect(json[0]).toHaveProperty("urlPath");
+	});
+
+	it("enforces trailing slash when configured", async () => {
+		const { pages, authMap, rewriteMap } = loadProject("basic");
+		const app = createCgiWithPages(pages, {}, authMap, rewriteMap, {
+			enforceTrailingSlash: true,
+		});
+
+		const res = await app.request("/dir", { redirect: "manual" });
+		expect(res.status).toBe(301);
+		expect(res.headers.get("location")).toBe("/dir/");
+	});
+
+	it("does not redirect paths with dots when trailing slash is enforced", async () => {
+		const { pages, authMap, rewriteMap } = loadProject("basic");
+		const app = createCgiWithPages(pages, {}, authMap, rewriteMap, {
+			enforceTrailingSlash: true,
+		});
+
+		// Should not redirect file-like paths
+		const res = await app.request("/test.cgi");
+		expect(res.status).not.toBe(301);
+	});
+
+	it("does not redirect paths with version numbers when trailing slash is enforced", async () => {
+		const { pages, authMap, rewriteMap } = loadProject("basic");
+		const app = createCgiWithPages(pages, {}, authMap, rewriteMap, {
+			enforceTrailingSlash: true,
+		});
+
+		// Paths like /api/v1.0 should not be redirected
+		const res = await app.request("/api/v1.0/users", { redirect: "manual" });
+		// This will 404 because the path doesn't exist, but shouldn't redirect
+		expect(res.status).not.toBe(301);
+	});
+
+	it("does not redirect paths that already have trailing slash", async () => {
+		const { pages, authMap, rewriteMap } = loadProject("basic");
+		const app = createCgiWithPages(pages, {}, authMap, rewriteMap, {
+			enforceTrailingSlash: true,
+		});
+
+		const res = await app.request("/dir/", { redirect: "manual" });
+		expect(res.status).not.toBe(301);
+	});
+
+	it("supports middleware with early return", async () => {
+		const { pages, authMap, rewriteMap } = loadProject("basic");
+		const app = createCgiWithPages(pages, {}, authMap, rewriteMap, {
+			middleware: [
+				async (c) => {
+					// Middleware returns Response directly (early return)
+					if (c.req.path === "/early-return") {
+						return new Response("Early return", { status: 200 });
+					}
+				},
+			],
+		});
+
+		const res = await app.request("/early-return");
+		expect(res.status).toBe(200);
+		const text = await res.text();
+		expect(text).toBe("Early return");
+	});
 });
