@@ -1,6 +1,6 @@
 # Matchbox Example Project
 
-This is an example project demonstrating how to use the Matchbox framework with Vite.
+This is a basic example project demonstrating how to use the Matchbox framework with Vite.
 
 ## About Matchbox
 
@@ -11,6 +11,18 @@ Matchbox is a simple web server framework built on top of Hono that provides a C
 - **URL Rewriting**: Support for `.htaccess` rewrite rules
 - **Session Management**: Built-in session handling
 - **File Uploads**: Easy handling of file uploads
+
+## Features in This Example
+
+This basic example includes:
+
+- `/` or `/index.cgi` - Index page with all example links
+- `/hello.cgi` - Simple hello world page
+- `/info.cgi` - Display CGI environment information
+- `/form.cgi` - Form handling (POST requests)
+- `/counter.cgi` - Query parameter handling with counter
+- `/json-api.cgi` - JSON API response example
+- `/redirect-example.cgi` - Redirect example
 
 ## Prerequisites
 

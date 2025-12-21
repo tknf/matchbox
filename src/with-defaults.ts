@@ -39,40 +39,37 @@ const loadPagesFromPublic = () => {
 		{} as Record<string, string>,
 	);
 
-	const rewriteMap = Object.keys(htaccessFiles).reduce(
-		(acc, key) => {
-			const dir =
-				key.replace(basePathRegex, "").replace(/\.htaccess$/, "") || "/";
-			const lines = (htaccessFiles[key] as string).split("\n");
-			const rules = lines
-				.map((line) => {
-					const l = line.trim();
-					if (!l || l.startsWith("#")) return null;
-					const parts = l.split(/\s+/);
-					if (parts[0] === "RewriteRule") {
-						return {
-							type: "rewrite",
-							pattern: parts[1],
-							target: parts[2],
-							flags: parts[3] || "",
-						};
-					}
-					if (parts[0] === "Redirect") {
-						return {
-							type: "redirect",
-							code: parts[1],
-							source: parts[2],
-							target: parts[3],
-						};
-					}
-					return null;
-				})
-				.filter(Boolean) as RewriteMap[string];
-			acc[dir] = rules;
-			return acc;
-		},
-		{} as RewriteMap,
-	);
+	const rewriteMap = Object.keys(htaccessFiles).reduce((acc, key) => {
+		const dir =
+			key.replace(basePathRegex, "").replace(/\.htaccess$/, "") || "/";
+		const lines = (htaccessFiles[key] as string).split("\n");
+		const rules = lines
+			.map((line) => {
+				const l = line.trim();
+				if (!l || l.startsWith("#")) return null;
+				const parts = l.split(/\s+/);
+				if (parts[0] === "RewriteRule") {
+					return {
+						type: "rewrite",
+						pattern: parts[1],
+						target: parts[2],
+						flags: parts[3] || "",
+					};
+				}
+				if (parts[0] === "Redirect") {
+					return {
+						type: "redirect",
+						code: parts[1],
+						source: parts[2],
+						target: parts[3],
+					};
+				}
+				return null;
+			})
+			.filter(Boolean) as RewriteMap[string];
+		acc[dir] = rules;
+		return acc;
+	}, {} as RewriteMap);
 
 	return { pages, authMap, rewriteMap };
 };
@@ -81,9 +78,5 @@ export const createCgi = () => {
 	const resolvedConfig =
 		typeof __MATCHBOX_CONFIG__ === "undefined" ? {} : __MATCHBOX_CONFIG__;
 	const { pages, authMap, rewriteMap } = loadPagesFromPublic();
-	return createCgiWithPages(pages, {
-		config: resolvedConfig,
-		authMap,
-		rewriteMap,
-	});
+	return createCgiWithPages(pages, resolvedConfig, authMap, rewriteMap);
 };

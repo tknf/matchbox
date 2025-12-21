@@ -1,4 +1,4 @@
-import type { CgiContext } from "../../dist/index.d.mts";
+import type { CgiContext } from "../../../dist";
 
 export default ({ cgiinfo }: CgiContext) => {
 	return cgiinfo();

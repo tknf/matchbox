@@ -29,9 +29,11 @@ describe("generateCgiInfo", () => {
 	});
 
 	it("renders Edge runtime label when process is unavailable", () => {
-		const originalProcess = (globalThis as typeof globalThis & {
-			process?: NodeJS.Process;
-		}).process;
+		const originalProcess = (
+			globalThis as typeof globalThis & {
+				process?: NodeJS.Process;
+			}
+		).process;
 		(globalThis as any).process = undefined;
 
 		try {

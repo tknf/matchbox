@@ -1,0 +1,11 @@
+{
+	"compilerOptions": {
+		"target": "ES2022",
+		"module": "ESNext",
+		"lib": ["ES2022"],
+		"jsx": "react-jsx",
+		"jsxImportSource": "hono/jsx",
+		"moduleResolution": "bundler",
+		"skipLibCheck": true
+	}
+}

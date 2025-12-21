@@ -1,4 +1,4 @@
-import { createCgi } from "../src/index";
+import { createCgi } from "../../dist";
 
 const app = createCgi();
 

@@ -56,7 +56,9 @@ describe("MatchboxPlugin", () => {
 		];
 
 		fs.writeFileSync(keepFile, "keep");
-		deleteFiles.forEach((file) => fs.writeFileSync(file, "remove"));
+		deleteFiles.forEach((file) => {
+			fs.writeFileSync(file, "remove");
+		});
 
 		runHook(plugin.configResolved, {
 			root,
@@ -65,7 +67,9 @@ describe("MatchboxPlugin", () => {
 
 		try {
 			runHook(plugin.closeBundle);
-			deleteFiles.forEach((file) => expect(fs.existsSync(file)).toBe(false));
+			deleteFiles.forEach((file) => {
+				expect(fs.existsSync(file)).toBe(false);
+			});
 			expect(fs.existsSync(keepFile)).toBe(true);
 		} finally {
 			fs.rmSync(root, { recursive: true, force: true });

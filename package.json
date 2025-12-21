@@ -8,8 +8,10 @@
 	"scripts": {
 		"test": "vitest run",
 		"test:coverage": "vitest run --coverage",
-		"lint:check": "biome lint check",
-		"format:check": "biome format --check",
+		"lint:check": "biome lint",
+		"lint:write": "biome lint --write",
+		"format:check": "biome format",
+		"format:write": "biome format --write",
 		"watch": "tsup --watch",
 		"build": "tsup"
 	},

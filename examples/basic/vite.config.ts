@@ -1,6 +1,6 @@
 import devServer from "@hono/vite-dev-server";
 import { defineConfig } from "vite";
-import { MatchboxPlugin } from "../dist/plugin.mjs";
+import { MatchboxPlugin } from "../../dist/plugin";
 
 export default defineConfig({
 	plugins: [

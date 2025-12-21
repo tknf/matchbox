@@ -6,6 +6,7 @@ import type {
 	ContentfulStatusCode,
 	RedirectStatusCode,
 } from "hono/utils/http-status";
+import packageJson from "../package.json";
 import { generateCgiError, generateCgiInfo } from "./html";
 
 // biome-ignore lint/suspicious/noExplicitAny: Child can be any
@@ -44,6 +45,12 @@ export interface CgiContext<ConfigType = ConfigObject> {
 		status?: number,
 	) => { __type: "redirect"; url: string; status: number };
 	cgiinfo: () => HtmlEscapedString | Promise<HtmlEscapedString>;
+	request_headers: () => Record<string, string>;
+	response_headers: () => Record<string, string>;
+	log: (message: string) => void;
+	get_version: () => string;
+	// TODO: implement module listing
+	get_modules: () => void;
 }
 
 export type Page = {
@@ -245,6 +252,21 @@ export const createCgiWithPages = (
 						return { __type: "redirect", url, status };
 					},
 					cgiinfo,
+					request_headers: () => {
+						return Object.fromEntries(c.req.raw.headers.entries());
+					},
+					response_headers: () => {
+						return responseHeaders;
+					},
+					log: (message: string) => {
+						console.log(`[CGI LOG] ${message}`);
+					},
+					get_version: () => {
+						return `MachboxCGI/v${packageJson.version}`;
+					},
+					get_modules: () => {
+						throw new Error("Not implemented");
+					},
 				};
 
 				try {

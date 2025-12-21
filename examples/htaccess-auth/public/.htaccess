@@ -1,0 +1,5 @@
+# Redirect legacy URL to the new page
+Redirect 301 /legacy /new.cgi
+
+# Pretty URL that redirects to a protected page
+RewriteRule ^/account$ /admin/account.cgi R=302
