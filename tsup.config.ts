@@ -12,6 +12,6 @@ export default defineConfig({
 	splitting: false,
 	minify: false,
 	format: ["esm"],
-	bundle: false,
+	bundle: true,
 	platform: "node",
 });
