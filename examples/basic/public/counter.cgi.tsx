@@ -1,7 +1,7 @@
 import type { CgiContext } from "../../../dist";
 
 export default ({ $_GET }: CgiContext) => {
-	const count = Number.parseInt($_GET.count || "0");
+	const count = Number.parseInt($_GET.count || "0", 10);
 
 	return (
 		<div>

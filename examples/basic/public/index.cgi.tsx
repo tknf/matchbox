@@ -3,7 +3,7 @@ export default () => {
 		<div>
 			<h1>Matchbox Basic Examples</h1>
 			<p>Welcome to Matchbox CGI framework examples!</p>
-			
+
 			<h2>Examples:</h2>
 			<ul>
 				<li>

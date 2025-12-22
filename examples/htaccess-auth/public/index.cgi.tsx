@@ -4,7 +4,7 @@ export default () => {
 			<h1>HTAccess + Basic Auth Example</h1>
 			<p>
 				This example shows how to use <code>.htaccess</code> for redirects and
-				 <code>.htpasswd</code> for basic authentication.
+				<code>.htpasswd</code> for basic authentication.
 			</p>
 
 			<h2>Redirect + Rewrite</h2>
