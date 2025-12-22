@@ -1,7 +1,19 @@
 {
 	"name": "matchbox",
-	"version": "0.1.0",
+	"version": "0.2.0",
 	"description": "A Simple Web Server Framework",
+	"keywords": [
+		"cgi",
+		"framework",
+		"hono",
+		"server",
+		"web"
+	],
+	"license": "MIT",
+	"author": "tknf <dev@tknf.net>",
+	"repository": {
+		"url": "https://github.com/tknf/matchbox.git"
+	},
 	"files": [
 		"dist"
 	],
@@ -29,6 +41,10 @@
 				"import": "./dist/plugin.mjs"
 			}
 		}
+	},
+	"publishConfig": {
+		"access": "public",
+		"registry": "https://registry.npmjs.org/"
 	},
 	"scripts": {
 		"test": "vitest run",
