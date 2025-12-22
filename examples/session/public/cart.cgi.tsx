@@ -30,8 +30,7 @@ export default ({ $_GET, $_SESSION }: CgiContext) => {
 			<ul>
 				{products.map((product) => (
 					<li key={product}>
-						{product} -{" "}
-						<a href={`/cart.cgi?action=add&item=${product}`}>Add to Cart</a>
+						{product} - <a href={`/cart.cgi?action=add&item=${product}`}>Add to Cart</a>
 					</li>
 				))}
 			</ul>
@@ -44,8 +43,7 @@ export default ({ $_GET, $_SESSION }: CgiContext) => {
 					<ul>
 						{cart.map((item: string, index: number) => (
 							<li key={index}>
-								{item} -{" "}
-								<a href={`/cart.cgi?action=remove&item=${item}`}>Remove</a>
+								{item} - <a href={`/cart.cgi?action=remove&item=${item}`}>Remove</a>
 							</li>
 						))}
 					</ul>

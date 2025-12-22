@@ -65,16 +65,19 @@ Shows how `.htaccess` rewrite/redirect rules and `.htpasswd` authentication work
 Each example is a standalone project. To run an example:
 
 1. Navigate to the example directory:
+
    ```bash
    cd examples/basic  # or middleware, session, file-upload
    ```
 
 2. Install dependencies:
+
    ```bash
    pnpm install
    ```
 
 3. Start the development server:
+
    ```bash
    pnpm dev
    ```

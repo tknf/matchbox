@@ -9,8 +9,7 @@ type LoadedProject = {
 	rewriteMap: RewriteMap;
 };
 
-const escapeRegex = (value: string) =>
-	value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+const escapeRegex = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
 const loadProject = (project: ProjectName): LoadedProject => {
 	let basePath = "";
@@ -44,10 +43,7 @@ const loadProject = (project: ProjectName): LoadedProject => {
 		}
 		case "rewrite": {
 			basePath = "/mocks/app-rewrite/public";
-			modules = import.meta.glob(
-				"/mocks/app-rewrite/public/**/*.cgi.{tsx,jsx}",
-				{ eager: true },
-			);
+			modules = import.meta.glob("/mocks/app-rewrite/public/**/*.cgi.{tsx,jsx}", { eager: true });
 			urls = import.meta.glob("/mocks/app-rewrite/public/**/*.cgi.{tsx,jsx}", {
 				eager: true,
 				query: "?url",
@@ -58,14 +54,11 @@ const loadProject = (project: ProjectName): LoadedProject => {
 				query: "?raw",
 				import: "default",
 			});
-			htaccessFiles = import.meta.glob(
-				"/mocks/app-rewrite/public/**/.htaccess",
-				{
-					eager: true,
-					query: "?raw",
-					import: "default",
-				},
-			);
+			htaccessFiles = import.meta.glob("/mocks/app-rewrite/public/**/.htaccess", {
+				eager: true,
+				query: "?raw",
+				import: "default",
+			});
 			break;
 		}
 		case "auth": {
@@ -96,10 +89,7 @@ const loadProject = (project: ProjectName): LoadedProject => {
 
 	const pages = Object.keys(modules).map((key) => {
 		const rawUrl = urls[key];
-		const urlPath = rawUrl
-			.replace(basePathRegex, "")
-			.replace(/.tsx$/, "")
-			.replace(/.jsx$/, "");
+		const urlPath = rawUrl.replace(basePathRegex, "").replace(/.tsx$/, "").replace(/.jsx$/, "");
 		const isIndex = urlPath.endsWith("/index.cgi") || urlPath === "/index.cgi";
 		const dirPath = isIndex ? urlPath.replace(/\/index\.cgi$/, "/") : null;
 		return { urlPath, dirPath, component: modules[key].default };
@@ -107,8 +97,7 @@ const loadProject = (project: ProjectName): LoadedProject => {
 
 	const authMap = Object.keys(htpasswds).reduce(
 		(acc, key) => {
-			const dir =
-				key.replace(basePathRegex, "").replace(/\.htpasswd$/, "") || "/";
+			const dir = key.replace(basePathRegex, "").replace(/\.htpasswd$/, "") || "/";
 			acc[dir] = htpasswds[key];
 			return acc;
 		},
@@ -116,8 +105,7 @@ const loadProject = (project: ProjectName): LoadedProject => {
 	);
 
 	const rewriteMap = Object.keys(htaccessFiles).reduce((acc, key) => {
-		const dir =
-			key.replace(basePathRegex, "").replace(/\.htaccess$/, "") || "/";
+		const dir = key.replace(basePathRegex, "").replace(/\.htaccess$/, "") || "/";
 		const lines = htaccessFiles[key].split("\n");
 		const rules = lines
 			.map((line) => {

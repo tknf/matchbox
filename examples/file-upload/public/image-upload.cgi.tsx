@@ -67,13 +67,7 @@ export default async ({ $_SERVER, $_FILES }: CgiContext) => {
 			<form method="post" enctype="multipart/form-data">
 				<div>
 					<label htmlFor="image">Choose an image:</label>
-					<input
-						type="file"
-						id="image"
-						name="image"
-						accept="image/*"
-						required
-					/>
+					<input type="file" id="image" name="image" accept="image/*" required />
 				</div>
 				<button type="submit">Upload</button>
 			</form>

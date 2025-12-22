@@ -1,4 +1,4 @@
-import { createCgiWithPages, type Page, type RewriteMap, type MatchboxOptions } from "./cgi";
+import { createCgiWithPages, type MatchboxOptions, type Page, type RewriteMap } from "./cgi";
 
 declare const __MATCHBOX_CONFIG__: Record<string, any> | undefined;
 
@@ -16,7 +16,7 @@ const loadPagesFromPublic = () => {
 		query: "?raw",
 		import: "default",
 	});
-	
+
 	// Note: .htdigest and .htgroup files are loaded for future implementation.
 	// They are currently used only for build-time inclusion and runtime blocking.
 	// We intentionally discard the result to avoid unused-variable warnings while
@@ -35,10 +35,7 @@ const loadPagesFromPublic = () => {
 	const basePathRegex = /^\/public/;
 
 	const pages: Page[] = Object.keys(modules).map((key) => {
-		const urlPath = key
-			.replace(basePathRegex, "")
-			.replace(/.tsx$/, "")
-			.replace(/.jsx$/, "");
+		const urlPath = key.replace(basePathRegex, "").replace(/.tsx$/, "").replace(/.jsx$/, "");
 		const isIndex = urlPath.endsWith("/index.cgi") || urlPath === "/index.cgi";
 		const dirPath = isIndex ? urlPath.replace(/\/index\.cgi$/, "/") : null;
 		return { urlPath, dirPath, component: (modules as any)[key].default };
@@ -46,8 +43,7 @@ const loadPagesFromPublic = () => {
 
 	const authMap = Object.keys(htpasswds).reduce(
 		(acc, key) => {
-			const dir =
-				key.replace(basePathRegex, "").replace(/\.htpasswd$/, "") || "/";
+			const dir = key.replace(basePathRegex, "").replace(/\.htpasswd$/, "") || "/";
 			acc[dir] = htpasswds[key] as string;
 			return acc;
 		},
@@ -55,8 +51,7 @@ const loadPagesFromPublic = () => {
 	);
 
 	const rewriteMap = Object.keys(htaccessFiles).reduce((acc, key) => {
-		const dir =
-			key.replace(basePathRegex, "").replace(/\.htaccess$/, "") || "/";
+		const dir = key.replace(basePathRegex, "").replace(/\.htaccess$/, "") || "/";
 		const lines = (htaccessFiles[key] as string).split("\n");
 		const rules = lines
 			.map((line) => {
@@ -90,8 +85,7 @@ const loadPagesFromPublic = () => {
 };
 
 export const createCgi = (options?: MatchboxOptions) => {
-	const resolvedConfig =
-		typeof __MATCHBOX_CONFIG__ === "undefined" ? {} : __MATCHBOX_CONFIG__;
+	const resolvedConfig = typeof __MATCHBOX_CONFIG__ === "undefined" ? {} : __MATCHBOX_CONFIG__;
 	const { pages, authMap, rewriteMap } = loadPagesFromPublic();
 	return createCgiWithPages(pages, resolvedConfig, authMap, rewriteMap, options);
 };

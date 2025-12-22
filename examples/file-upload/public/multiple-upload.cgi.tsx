@@ -28,10 +28,7 @@ export default ({ $_SERVER, $_FILES }: CgiContext) => {
 
 				<h2>File Information:</h2>
 				{fileInfos.map((info, index) => (
-					<div
-						key={index}
-						style="margin-bottom: 20px; padding: 10px; border: 1px solid #ccc;"
-					>
+					<div key={index} style="margin-bottom: 20px; padding: 10px; border: 1px solid #ccc;">
 						<h3>
 							File {index + 1}: {info.name}
 						</h3>

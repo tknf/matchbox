@@ -7,11 +7,13 @@ This document outlines the security features and considerations for the Matchbox
 ### 1. Session Cookie Security
 
 Session cookies are configured with secure defaults:
+
 - **HttpOnly**: Enabled by default to prevent XSS attacks from accessing session data
 - **SameSite**: Set to "Lax" by default to provide CSRF protection while maintaining usability
 - **Configurable Options**: Support for `Secure`, `Domain`, `MaxAge`, and custom `Path`
 
 Example configuration:
+
 ```typescript
 createCgi({
   sessionCookie: {
@@ -27,6 +29,7 @@ createCgi({
 ### 2. Protection Against Direct Access to Configuration Files
 
 The framework automatically blocks access to sensitive configuration files:
+
 - `.htaccess`
 - `.htpasswd`
 - `.htdigest`
@@ -37,6 +40,7 @@ Any direct HTTP request to these files returns a 403 Forbidden response.
 ### 3. Basic Authentication Support
 
 Built-in support for HTTP Basic Authentication through `.htpasswd` files:
+
 - Credentials are verified on each request
 - Realm-based authentication
 - Directory-level protection
@@ -64,17 +68,18 @@ Built-in support for HTTP Basic Authentication through `.htpasswd` files:
 ### 3. Input Validation
 
 Always validate and sanitize user input:
+
 ```typescript
 export default (context: CgiContext) => {
   const { $_POST, $_GET } = context;
-  
+
   // Validate input
   const email = $_POST.email;
   if (!email || !isValidEmail(email)) {
     context.status(400);
     return "Invalid email";
   }
-  
+
   // Process safely...
 };
 ```
@@ -82,12 +87,13 @@ export default (context: CgiContext) => {
 ### 4. Content Security
 
 Use proper Content-Type headers:
+
 ```typescript
 export default (context: CgiContext) => {
   // For JSON responses
   context.header("Content-Type", "application/json");
   return { data: "safe" };
-  
+
   // For HTML, the framework uses Hono's html escaping by default
 };
 ```
@@ -95,6 +101,7 @@ export default (context: CgiContext) => {
 ### 5. File Uploads
 
 When handling file uploads, validate:
+
 - File types
 - File sizes
 - File names (to prevent path traversal)
@@ -103,19 +110,19 @@ When handling file uploads, validate:
 export default async (context: CgiContext) => {
   const { $_FILES } = context;
   const upload = $_FILES.file as File;
-  
+
   // Validate file type
   if (!upload.type.startsWith('image/')) {
     context.status(400);
     return "Invalid file type";
   }
-  
+
   // Validate file size (e.g., 5MB limit)
   if (upload.size > 5 * 1024 * 1024) {
     context.status(400);
     return "File too large";
   }
-  
+
   // Process file safely...
 };
 ```

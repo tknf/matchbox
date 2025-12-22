@@ -60,6 +60,7 @@ const files = formData.getAll("files") as File[];
 ```
 
 Files are received as `File` objects with the following properties:
+
 - `name`: File name
 - `size`: File size in bytes
 - `type`: MIME type

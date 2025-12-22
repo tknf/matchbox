@@ -12,6 +12,7 @@
 - [x] Implement functions of `.htdigest` and `.htgroup` files.
 
 ## Security Improvements Completed
+
 - [x] Added session cookie configuration options (secure, sameSite, maxAge, domain, path)
 - [x] Implemented protection against direct access to configuration files (.htaccess, .htpasswd, .htdigest, .htgroup)
 - [x] Added custom middleware support for additional security layers
@@ -19,9 +20,9 @@
 - [x] Created comprehensive security documentation
 
 ## Future Enhancements
+
 - [ ] Implement digest authentication using .htdigest files
 - [ ] Implement group-based authorization using .htgroup files
 - [ ] Add built-in CSRF token support
 - [ ] Add rate limiting middleware
 - [ ] Add Content Security Policy helpers
-

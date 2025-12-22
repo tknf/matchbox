@@ -2,10 +2,7 @@ import { type Context, Hono } from "hono";
 import { basicAuth } from "hono/basic-auth";
 import { getCookie, setCookie } from "hono/cookie";
 import type { HtmlEscapedString } from "hono/utils/html";
-import type {
-	ContentfulStatusCode,
-	RedirectStatusCode,
-} from "hono/utils/http-status";
+import type { ContentfulStatusCode, RedirectStatusCode } from "hono/utils/http-status";
 import packageJson from "../package.json";
 import { generateCgiError, generateCgiInfo } from "./html";
 
@@ -82,10 +79,7 @@ export interface CgiContext<ConfigType = ConfigObject> {
 	c: Context;
 	header: (name: string, value: string) => void;
 	status: (code: number) => void;
-	redirect: (
-		url: string,
-		status?: number,
-	) => { __type: "redirect"; url: string; status: number };
+	redirect: (url: string, status?: number) => { __type: "redirect"; url: string; status: number };
 	cgiinfo: () => HtmlEscapedString | Promise<HtmlEscapedString>;
 	request_headers: () => Record<string, string>;
 	response_headers: () => Record<string, string>;
@@ -141,7 +135,7 @@ export const createCgiWithPages = (
 ) => {
 	const app = new Hono();
 	const SESS_KEY = options.sessionCookie?.name || "_SESSION_ID";
-	
+
 	// Apply custom middleware if provided
 	if (options.middleware && options.middleware.length > 0) {
 		for (const mw of options.middleware) {
@@ -154,7 +148,7 @@ export const createCgiWithPages = (
 			});
 		}
 	}
-	
+
 	// Prevent access to sensitive configuration files
 	const protectedFiles = [".htaccess", ".htpasswd", ".htdigest", ".htgroup"];
 	app.use("*", async (c, next) => {
@@ -165,7 +159,7 @@ export const createCgiWithPages = (
 		}
 		await next();
 	});
-	
+
 	// Enforce trailing slash if configured
 	if (options.enforceTrailingSlash) {
 		app.use("*", async (c, next) => {
@@ -196,15 +190,10 @@ export const createCgiWithPages = (
 				else if (rule.type === "rewrite") {
 					const regex = new RegExp(rule.pattern);
 					if (regex.test(relPath)) {
-						const target = rule.target.startsWith("/")
-							? rule.target
-							: `${basePath}/${rule.target}`;
+						const target = rule.target.startsWith("/") ? rule.target : `${basePath}/${rule.target}`;
 						if (rule.flags.includes("R")) {
 							const code = rule.flags.match(/R=(\d+)/)?.[1] || "302";
-							return c.redirect(
-								target,
-								Number.parseInt(code, 10) as RedirectStatusCode,
-							);
+							return c.redirect(target, Number.parseInt(code, 10) as RedirectStatusCode);
 						}
 					}
 				}
@@ -228,9 +217,7 @@ export const createCgiWithPages = (
 			app.use(authPath, async (c, next) => {
 				const handler = basicAuth({
 					verifyUser: (u, p) =>
-						credentials.some(
-							(cred) => cred.username === u && cred.password === p,
-						),
+						credentials.some((cred) => cred.username === u && cred.password === p),
 					realm: "Restricted Area",
 				});
 				return handler(c, next);
@@ -256,10 +243,7 @@ export const createCgiWithPages = (
 				const $_POST: Record<string, any> = {};
 				const $_FILES: Record<string, File | File[]> = {};
 				for (const [key, value] of Object.entries(body)) {
-					if (
-						value instanceof File ||
-						(Array.isArray(value) && value[0] instanceof File)
-					) {
+					if (value instanceof File || (Array.isArray(value) && value[0] instanceof File)) {
 						$_FILES[key] = value as File | File[];
 					} else {
 						$_POST[key] = value;
@@ -273,9 +257,7 @@ export const createCgiWithPages = (
 				};
 				// biome-ignore lint/suspicious/noExplicitAny: environment can be any
 				const $_ENV: Record<string, any> =
-					typeof process !== "undefined" && process.env
-						? process.env
-						: c.env || {};
+					typeof process !== "undefined" && process.env ? process.env : c.env || {};
 
 				// biome-ignore lint/suspicious/noExplicitAny: session data can be any
 				let $_SESSION: Record<string, any> = {};
@@ -373,7 +355,7 @@ export const createCgiWithPages = (
 						httpOnly: true,
 						sameSite: options.sessionCookie?.sameSite || "Lax",
 					};
-					
+
 					if (options.sessionCookie?.secure !== undefined) {
 						sessionOptions.secure = options.sessionCookie.secure;
 					}

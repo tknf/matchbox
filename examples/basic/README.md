@@ -194,6 +194,7 @@ export default defineConfig({
   ],
 });
 ```
+
 Server entryは `createCgi()` をそのまま export すればOKです。
 Note: page discovery currently assumes `/public`. Custom page roots will be supported later.
 
@@ -215,6 +216,7 @@ export default defineConfig({
   ],
 });
 ```
+
 Server entryは `createCgi()` をそのまま export すればOKです。
 
 Access configuration in your pages via `config` property in CgiContext.

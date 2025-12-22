@@ -1,12 +1,6 @@
 import type { CgiContext } from "../../../dist";
 
-export default ({
-	$_GET,
-	$_SERVER,
-	header,
-	status,
-	request_headers,
-}: CgiContext) => {
+export default ({ $_GET, $_SERVER, header, status, request_headers }: CgiContext) => {
 	const format = $_GET.format;
 
 	const data = {
