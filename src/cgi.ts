@@ -3,8 +3,9 @@ import { basicAuth } from "hono/basic-auth";
 import { getCookie, setCookie } from "hono/cookie";
 import type { HtmlEscapedString } from "hono/utils/html";
 import type { ContentfulStatusCode, RedirectStatusCode } from "hono/utils/http-status";
-import packageJson from "../package.json";
 import { generateCgiError, generateCgiInfo } from "./html.js";
+
+declare const __version__: string;
 
 // biome-ignore lint/suspicious/noExplicitAny: Child can be any
 export type ConfigObject = Record<string, any>;
@@ -326,7 +327,7 @@ export const createCgiWithPages = (
 						}
 					},
 					get_version: () => {
-						return `MatchboxCGI/v${packageJson.version}`;
+						return `MatchboxCGI/v${__version__}`;
 					},
 					/**
 					 * Returns information about all loaded CGI modules

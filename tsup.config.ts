@@ -12,6 +12,9 @@ export default defineConfig({
 	splitting: false,
 	minify: false,
 	format: ["esm"],
-	bundle: true,
+	bundle: false,
 	platform: "node",
+	define: {
+		__version__: JSON.stringify(process.env.npm_package_version || "dev"),
+	},
 });
