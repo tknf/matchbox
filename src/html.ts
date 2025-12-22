@@ -1,5 +1,5 @@
 import { html } from "hono/html";
-import type { CgiContext } from ".";
+import type { CgiContext } from "./cgi.js";
 
 export const generateCgiInfo = ({
 	$_SERVER,

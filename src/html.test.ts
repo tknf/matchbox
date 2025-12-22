@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { generateCgiError, generateCgiInfo } from "./html";
+import { generateCgiError, generateCgiInfo } from "./html.js";
 
 describe("generateCgiInfo", () => {
 	it("renders CGI info sections with data", () => {

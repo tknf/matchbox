@@ -1,4 +1,4 @@
-import { createCgiWithPages, type MatchboxOptions, type Page, type RewriteMap } from "./cgi";
+import { createCgiWithPages, type MatchboxOptions, type Page, type RewriteMap } from "./cgi.js";
 
 declare const __MATCHBOX_CONFIG__: Record<string, any> | undefined;
 

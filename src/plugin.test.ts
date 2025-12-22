@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
-import { MatchboxPlugin } from "./plugin";
+import { MatchboxPlugin } from "./plugin.js";
 
 describe("MatchboxPlugin", () => {
 	const runHook = <T extends (...args: any[]) => any>(

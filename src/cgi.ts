@@ -4,7 +4,7 @@ import { getCookie, setCookie } from "hono/cookie";
 import type { HtmlEscapedString } from "hono/utils/html";
 import type { ContentfulStatusCode, RedirectStatusCode } from "hono/utils/http-status";
 import packageJson from "../package.json";
-import { generateCgiError, generateCgiInfo } from "./html";
+import { generateCgiError, generateCgiInfo } from "./html.js";
 
 // biome-ignore lint/suspicious/noExplicitAny: Child can be any
 export type ConfigObject = Record<string, any>;

@@ -5,5 +5,5 @@ export type {
 	ModuleInfo,
 	Page,
 	SessionCookieOptions,
-} from "./cgi";
-export { createCgi } from "./with-defaults";
+} from "./cgi.js";
+export { createCgi } from "./with-defaults.js";

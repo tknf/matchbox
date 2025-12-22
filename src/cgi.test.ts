@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createCgiWithPages, type RewriteMap } from "./cgi";
+import { createCgiWithPages, type RewriteMap } from "./cgi.js";
 
 type ProjectName = "basic" | "rewrite" | "auth";
 
