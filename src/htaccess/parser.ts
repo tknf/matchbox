@@ -1,9 +1,11 @@
 import type {
+	AccessRule,
 	ConditionFlags,
 	DirectoryConfig,
 	ErrorDocumentConfig,
 	HeaderConfig,
 	RedirectConfig,
+	RequireConfig,
 	RewriteCondition,
 	RewriteFlags,
 	RewriteRuleConfig,
@@ -231,6 +233,117 @@ function parseRedirect(tokens: string[], directive: string): RedirectConfig {
 }
 
 /**
+ * Parse AuthType directive
+ */
+function parseAuthType(tokens: string[]): "Basic" | "Digest" {
+	if (tokens.length < 2) {
+		throw new Error("AuthType requires a type (Basic or Digest)");
+	}
+
+	const type = tokens[1];
+	if (type !== "Basic" && type !== "Digest") {
+		throw new Error(`Invalid AuthType: ${type}. Must be Basic or Digest`);
+	}
+
+	return type;
+}
+
+/**
+ * Parse Require directive
+ */
+function parseRequire(tokens: string[]): RequireConfig {
+	if (tokens.length < 2) {
+		throw new Error("Require directive requires at least one argument");
+	}
+
+	const type = tokens[1];
+
+	// Require valid-user
+	if (type === "valid-user") {
+		return { type: "valid-user" };
+	}
+
+	// Require all granted|denied
+	if (type === "all") {
+		if (tokens.length < 3) {
+			throw new Error("Require all must specify granted or denied");
+		}
+		const granted = tokens[2] === "granted";
+		return { type: "all", granted };
+	}
+
+	// Require user username1 username2 ...
+	if (type === "user") {
+		if (tokens.length < 3) {
+			throw new Error("Require user must specify at least one username");
+		}
+		return { type: "user", value: tokens.slice(2) };
+	}
+
+	// Require group groupname1 groupname2 ...
+	if (type === "group") {
+		if (tokens.length < 3) {
+			throw new Error("Require group must specify at least one group name");
+		}
+		return { type: "group", value: tokens.slice(2) };
+	}
+
+	// Require ip 192.168.1.0/24
+	if (type === "ip") {
+		if (tokens.length < 3) {
+			throw new Error("Require ip must specify at least one IP or CIDR");
+		}
+		return { type: "ip", value: tokens.slice(2) };
+	}
+
+	// Require host example.com
+	if (type === "host") {
+		if (tokens.length < 3) {
+			throw new Error("Require host must specify at least one hostname");
+		}
+		return { type: "host", value: tokens.slice(2) };
+	}
+
+	throw new Error(`Unknown Require type: ${type}`);
+}
+
+/**
+ * Parse Allow/Deny directives (Apache 2.2 style)
+ */
+function parseAccessRule(tokens: string[]): AccessRule {
+	if (tokens.length < 3) {
+		throw new Error(`${tokens[0]} directive requires at least one argument`);
+	}
+
+	const fromKeyword = tokens[1];
+	if (fromKeyword !== "from") {
+		throw new Error(`${tokens[0]} directive must use 'from' keyword`);
+	}
+
+	const target = tokens[2];
+
+	// Allow from all / Deny from all
+	if (target === "all") {
+		return { type: "all" };
+	}
+
+	// Allow from env=VARIABLE
+	if (target.startsWith("env=")) {
+		return { type: "env", value: target.slice(4) };
+	}
+
+	// Check if it looks like an IP address or CIDR
+	const isIP = /^[\d./]+$/.test(target) || target.includes(":");
+	if (isIP) {
+		// Allow from 192.168.1.0/24 or multiple IPs
+		return { type: "ip", value: tokens.slice(2) };
+	}
+
+	// Otherwise treat as hostname
+	return { type: "host", value: tokens.slice(2) };
+}
+
+/**
  * Main parser for .htaccess files
  */
 export function parseHtaccess(content: string): DirectoryConfig {
@@ -239,6 +352,8 @@ export function parseHtaccess(content: string): DirectoryConfig {
 		redirects: [],
 		errorDocuments: [],
 		headers: [],
+		authConfig: undefined,
+		accessControl: undefined,
 	};
 
 	const lines = content.split("\n");
@@ -296,14 +411,111 @@ export function parseHtaccess(content: string): DirectoryConfig {
 					config.headers.push(parseHeader(tokens));
 					break;
 
+				case "AuthType":
+					if (!config.authConfig) {
+						config.authConfig = {};
+					}
+					config.authConfig.authType = parseAuthType(tokens);
+					break;
+
+				case "AuthName":
+					if (!config.authConfig) {
+						config.authConfig = {};
+					}
+					if (tokens.length < 2) {
+						throw new Error("AuthName requires a realm name");
+					}
+					config.authConfig.authName = tokens.slice(1).join(" ");
+					break;
+
+				case "AuthUserFile":
+					if (!config.authConfig) {
+						config.authConfig = {};
+					}
+					if (tokens.length < 2) {
+						throw new Error("AuthUserFile requires a file path");
+					}
+					config.authConfig.authUserFile = tokens[1];
+					break;
+
+				case "AuthGroupFile":
+					if (!config.authConfig) {
+						config.authConfig = {};
+					}
+					if (tokens.length < 2) {
+						throw new Error("AuthGroupFile requires a file path");
+					}
+					config.authConfig.authGroupFile = tokens[1];
+					break;
+
+				case "AuthDigestProvider":
+					if (!config.authConfig) {
+						config.authConfig = {};
+					}
+					if (tokens.length < 2) {
+						throw new Error("AuthDigestProvider requires a provider name");
+					}
+					config.authConfig.authDigestProvider = tokens[1];
+					break;
+
+				case "Require":
+					if (!config.authConfig) {
+						config.authConfig = {};
+					}
+					if (!config.authConfig.require) {
+						config.authConfig.require = [];
+					}
+					config.authConfig.require.push(parseRequire(tokens));
+					break;
+
+				case "Order": {
+					if (!config.accessControl) {
+						config.accessControl = { allow: [], deny: [] };
+					}
+					if (tokens.length < 2) {
+						throw new Error("Order directive requires an argument");
+					}
+					const orderValue = tokens[1].toLowerCase();
+					if (
+						orderValue !== "allow,deny" &&
+						orderValue !== "deny,allow" &&
+						orderValue !== "mutual-failure"
+					) {
+						throw new Error(`Invalid Order value: ${tokens[1]}`);
+					}
+					config.accessControl.order = orderValue as "allow,deny" | "deny,allow" | "mutual-failure";
+					break;
+				}
+
+				case "Allow":
+					if (!config.accessControl) {
+						config.accessControl = { allow: [], deny: [] };
+					}
+					config.accessControl.allow.push(parseAccessRule(tokens));
+					break;
+
+				case "Deny":
+					if (!config.accessControl) {
+						config.accessControl = { allow: [], deny: [] };
+					}
+					config.accessControl.deny.push(parseAccessRule(tokens));
+					break;
+
 				default:
 					// Unknown directive - log warning but continue
 					// console.warn(`Unknown directive at line ${i + 1}: ${directive}`);
 					break;
 			}
 		} catch (error) {
-			throw new Error(`Parse error at line ${i + 1}: ${(error as Error).message}`);
+			throw new Error(`Parse error at line ${i + 1}: ${(error as Error).message}`, {
+				cause: error,
+			});
 		}
+	}
+
+	// Set default Order if access control rules exist but Order is not specified
+	if (config.accessControl && !config.accessControl.order) {
+		config.accessControl.order = "allow,deny"; // Apache default
 	}
 
 	return config;

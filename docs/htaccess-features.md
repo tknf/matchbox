@@ -9,6 +9,9 @@
 - ✅ **Redirects** (Redirect directive with status code)
 - ✅ **ErrorDocument** - Custom error pages for HTTP status codes
 - ✅ **Security Headers** (Header directive with set/append/unset actions)
+- ✅ **CORS Headers** (Access-Control-\* headers with helper functions)
+- ✅ **Auth Directives** (AuthType, AuthName, Require - parsing only)
+- ✅ **Access Control** (Order/Allow/Deny - Apache 2.2 style, fully enforced)
 
 ## Migration from v0.2.x to v0.3.0
 
@@ -37,6 +40,8 @@ interface DirectoryConfig {
   redirects: RedirectConfig[];
   errorDocuments: ErrorDocumentConfig[];
   headers: HeaderConfig[];
+  authConfig?: AuthConfig;
+  accessControl?: AccessControlConfig;
 }
 ```
 
@@ -69,12 +74,14 @@ const htaccessConfig = {
 ### New .htaccess Syntax Support
 
 **RewriteCond:**
+
 ```apache
 RewriteCond %{HTTP_HOST} ^www\.example\.com$
 RewriteRule ^(.*)$ https://example.com/$1 [R=301,L]
 ```
 
 **Complete Flag Support:**
+
 ```apache
 RewriteRule ^forbidden$ - [F]           # 403 Forbidden
 RewriteRule ^gone$ - [G]                # 410 Gone
@@ -82,12 +89,14 @@ RewriteRule ^api /api.cgi [NC,QSA,L]    # Case-insensitive, append query string,
 ```
 
 **ErrorDocument:**
+
 ```apache
 ErrorDocument 404 /errors/404.html
 ErrorDocument 500 /errors/500.html
 ```
 
 **Security Headers:**
+
 ```apache
 Header set X-Frame-Options "SAMEORIGIN"
 Header set Content-Security-Policy "default-src 'self'"
@@ -126,18 +135,21 @@ The new parser supports:
 ## Authentication & Authorization
 
 ### Digest Authentication
+
 - [ ] **Digest Authentication** (.htdigest)
   - More secure than Basic Auth (passwords hashed with MD5)
   - Challenge-response mechanism
   - Files already loaded but not implemented
 
 ### Group-based Authorization
+
 - [ ] **Group Management** (.htgroup)
   - User group definitions
   - Group-based access control
   - Files already loaded but not implemented
 
 ### Access Control Directives
+
 - [ ] **Require Directive**
   - `Require valid-user` - any authenticated user
   - `Require user username1 username2` - specific users
@@ -146,25 +158,74 @@ The new parser supports:
   - `Require host example.com` - hostname-based access
   - `Require all granted/denied` - allow/deny all
 
-- [ ] **Auth Directives**
-  - `AuthType` - Basic or Digest
-  - `AuthName` - Authentication realm name
-  - `AuthUserFile` - Path to password file
-  - `AuthGroupFile` - Path to group file
-  - `AuthDigestProvider` - Digest auth provider
+✅ **Auth Directives** - Parsing implemented (enforcement pending)
+
+Supported directives:
+
+```apache
+AuthType Basic              # or Digest
+AuthName "Restricted Area"
+AuthUserFile /path/to/.htpasswd
+AuthGroupFile /path/to/.htgroup
+AuthDigestProvider file
+Require valid-user
+Require user admin moderator
+Require group developers
+Require ip 192.168.1.0/24
+Require host example.com
+Require all granted         # or denied
+```
+
+See [Auth & CORS Examples](./auth-cors-examples.md) for detailed usage.
 
 ### IP-based Access Control (Legacy)
-- [ ] **Order/Allow/Deny** (Apache 2.2 style)
-  - `Order allow,deny` or `Order deny,allow`
-  - `Allow from 192.168.1.0/24`
-  - `Deny from 10.0.0.1`
-  - Support for IP ranges, CIDR notation, hostnames
+
+✅ **Order/Allow/Deny** (Apache 2.2 style) - Fully implemented and enforced
+
+Supported syntax:
+
+```apache
+Order deny,allow            # or allow,deny or mutual-failure
+Deny from all
+Allow from 192.168.1.0/24
+Allow from 10.0.0.5
+Deny from badhost.example.com
+Allow from env=LOCAL_ACCESS
+```
+
+**Common patterns:**
+
+Deny all access:
+
+```apache
+Deny from all
+```
+
+Allow only specific IPs:
+
+```apache
+Order deny,allow
+Deny from all
+Allow from 192.168.1.0/24
+Allow from 10.0.0.5
+```
+
+Deny specific IPs:
+
+```apache
+Order allow,deny
+Allow from all
+Deny from 203.0.113.0/24
+```
+
+**Note:** Access Control (Order/Allow/Deny) directives are fully enforced automatically. Auth directives (Require) are currently parsed but not automatically enforced. You can access the parsed configuration via `authConfig` property and implement custom enforcement logic in middleware.
 
 ## URL Rewriting & Redirection
 
 ### RewriteRule Features
 
 ✅ **Implemented Flags:**
+
 - `[L]` - Last rule, stop processing
 - `[R]` / `[R=301]` / `[R=302]` - Redirect with status code
 - `[F]` - Forbidden (return 403)
@@ -175,6 +236,7 @@ The new parser supports:
 - `[NE]` - No Escape (don't escape special chars)
 
 ⏳ **Future Flags:**
+
 - `[P]` - Proxy (reverse proxy)
 - `[PT]` - Pass Through to next handler
 - `[S=N]` - Skip next N rules
@@ -187,6 +249,7 @@ The new parser supports:
 - `[H=handler]` - Force handler
 
 ### Advanced Rewriting
+
 - [ ] **RewriteBase**
   - Set base URL for relative rewrites
   - Useful for subdirectory installations
@@ -199,9 +262,11 @@ The new parser supports:
 ### Redirect Directives
 
 ✅ **Implemented:**
+
 - `Redirect [status] source target` - With numeric status code
 
 ⏳ **Future:**
+
 - `RedirectPermanent` - permanent (301)
 - `RedirectTemp` - explicit temporary (302)
 - `RedirectMatch` - with regex pattern
@@ -209,6 +274,7 @@ The new parser supports:
 ## Error Handling
 
 ✅ **ErrorDocument** - Implemented
+
 ```apache
 ErrorDocument 404 /errors/404.html
 ErrorDocument 403 /errors/forbidden.html
@@ -216,6 +282,7 @@ ErrorDocument 500 /errors/internal.html
 ```
 
 ⏳ **Future Enhancements:**
+
 - Support for external URLs
 - Error document variables
 - Dynamic error messages
@@ -223,6 +290,7 @@ ErrorDocument 500 /errors/internal.html
 ## Directory Control
 
 ### Directory Indexing
+
 - [ ] **Options Directive for Indexes**
   - `Options +Indexes` - enable directory listing
   - `Options -Indexes` - disable directory listing
@@ -252,6 +320,7 @@ ErrorDocument 500 /errors/internal.html
 ## Performance & Caching
 
 ### Cache Control
+
 - [ ] **ExpiresActive / ExpiresDefault / ExpiresByType**
   - Control browser caching with Expires headers
 
@@ -261,6 +330,7 @@ ErrorDocument 500 /errors/internal.html
   - `Header append Vary "Accept-Encoding"`
 
 ### Compression
+
 - [ ] **Deflate/Gzip Configuration**
   - Automatic response compression
   - Filter by content type
@@ -268,6 +338,7 @@ ErrorDocument 500 /errors/internal.html
 ## Security Headers
 
 ✅ **Header Directive** - Implemented
+
 ```apache
 Header set X-Frame-Options "SAMEORIGIN"
 Header set X-Content-Type-Options "nosniff"
@@ -300,11 +371,36 @@ const config = {
 ```
 
 ### CORS Headers
-- [ ] **CORS Configuration**
-  - `Header set Access-Control-Allow-Origin "*"`
-  - `Header set Access-Control-Allow-Methods "GET, POST, OPTIONS"`
-  - `Header set Access-Control-Allow-Headers "Content-Type"`
-  - `Header set Access-Control-Max-Age "3600"`
+
+✅ **Fully Implemented** - Use Header directive or helper functions
+
+**.htaccess syntax:**
+
+```apache
+Header set Access-Control-Allow-Origin "*"
+Header set Access-Control-Allow-Methods "GET, POST, OPTIONS"
+Header set Access-Control-Allow-Headers "Content-Type, Authorization"
+Header set Access-Control-Allow-Credentials "true"
+Header set Access-Control-Max-Age "3600"
+Header set Access-Control-Expose-Headers "X-Custom-Header"
+```
+
+**TypeScript helper functions:**
+
+```typescript
+import { corsHeaders } from "@tknf/matchbox";
+
+const config = {
+  headers: [
+    corsHeaders.allowOrigin("https://example.com"),
+    corsHeaders.allowMethods(["GET", "POST", "PUT", "DELETE", "OPTIONS"]),
+    corsHeaders.allowHeaders(["Content-Type", "Authorization"]),
+    corsHeaders.allowCredentials(true),
+    corsHeaders.maxAge(3600),
+    corsHeaders.exposeHeaders(["X-Total-Count", "X-Page-Number"]),
+  ]
+};
+```
 
 ## Request Filtering
 
@@ -326,30 +422,36 @@ const config = {
 ## Implementation Priority
 
 ### ✅ High Priority - COMPLETED (v0.3.0)
+
 1. ✅ Basic Authentication (.htpasswd)
 2. ✅ URL Rewriting (RewriteRule with comprehensive flags)
 3. ✅ Redirects (Redirect directive)
 4. ✅ RewriteCond - Conditional rewriting
 5. ✅ ErrorDocument - Custom error pages
 6. ✅ Security Headers (Header directive)
+7. ✅ CORS Headers (Access-Control-\* with helpers)
+8. ✅ Auth Directives parsing (AuthType, AuthName, Require)
+9. ✅ Access Control enforcement (Order/Allow/Deny)
 
 ### Medium Priority (Future)
-1. [ ] Digest authentication (.htdigest)
-2. [ ] Group-based authorization (.htgroup)
-3. [ ] IP-based access control
+
+1. [ ] Auth Directives enforcement (Require user/group/ip/host)
+2. [ ] Digest authentication (.htdigest) - verification
+3. [ ] Group-based authorization (.htgroup) - enforcement
 4. [ ] MIME type configuration
-5. [ ] Caching headers
-6. [ ] CORS headers
-7. [ ] Request limits
-8. [ ] Compression
+5. [ ] Caching headers (Expires, Cache-Control)
+6. [ ] Request limits
+7. [ ] Compression
 
 ### Low Priority (Nice to Have)
+
 1. [ ] Directory indexing customization
 2. [ ] Advanced logging
 3. [ ] Environment variables
 4. [ ] SSI support
 
 ### Not Applicable / Out of Scope
+
 - Apache-specific server configuration (ServerTokens, HostnameLookups)
 - Features that conflict with Node.js/Hono architecture
 - Low-level Apache module features
@@ -357,6 +459,7 @@ const config = {
 ## Usage Examples
 
 ### Basic Rewrite with Condition
+
 ```apache
 # Redirect www to non-www
 RewriteCond %{HTTP_HOST} ^www\.example\.com$
@@ -364,6 +467,7 @@ RewriteRule ^(.*)$ https://example.com/$1 [R=301,L]
 ```
 
 ### Multiple Conditions (AND logic)
+
 ```apache
 # Block POST requests from specific user agent
 RewriteCond %{REQUEST_METHOD} POST
@@ -372,6 +476,7 @@ RewriteRule .* - [F]
 ```
 
 ### Multiple Conditions (OR logic)
+
 ```apache
 # Block multiple bad bots
 RewriteCond %{HTTP_USER_AGENT} BadBot1 [OR]
@@ -380,6 +485,7 @@ RewriteRule .* - [F]
 ```
 
 ### Query String Manipulation
+
 ```apache
 # Append existing query string to redirect
 RewriteRule ^old-api$ /new-api?migrated=true [QSA,R=302]
@@ -389,12 +495,14 @@ RewriteRule ^clean$ /destination [QSD,R=302]
 ```
 
 ### Case-Insensitive Matching
+
 ```apache
 RewriteRule ^about$ /about.cgi [NC,L]
 # Matches: /about, /About, /ABOUT, /aBouT, etc.
 ```
 
 ### Security Setup
+
 ```apache
 # Comprehensive security headers
 Header set X-Frame-Options "SAMEORIGIN"
@@ -404,6 +512,12 @@ Header set Strict-Transport-Security "max-age=31536000; includeSubDomains"
 Header set Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline'"
 Header set Referrer-Policy "strict-origin-when-cross-origin"
 Header set Permissions-Policy "geolocation=(), microphone=(), camera=()"
+
+# CORS for API endpoints
+Header set Access-Control-Allow-Origin "https://app.example.com"
+Header set Access-Control-Allow-Methods "GET, POST, PUT, DELETE, OPTIONS"
+Header set Access-Control-Allow-Headers "Content-Type, Authorization"
+Header set Access-Control-Allow-Credentials "true"
 
 # Custom error pages
 ErrorDocument 404 /errors/404.html
@@ -415,6 +529,42 @@ AuthType Basic
 AuthName "Restricted Area"
 AuthUserFile /path/to/.htpasswd
 Require valid-user
+```
+
+### Access Control Examples
+
+Deny all access (maintenance mode):
+
+```apache
+Deny from all
+```
+
+Allow only from specific IP ranges:
+
+```apache
+Order deny,allow
+Deny from all
+Allow from 192.168.1.0/24
+Allow from 10.0.0.5
+```
+
+Block specific bad actors:
+
+```apache
+Order allow,deny
+Allow from all
+Deny from 203.0.113.0/24
+Deny from malicious.example.com
+```
+
+Allow local development only:
+
+```apache
+Order deny,allow
+Deny from all
+Allow from 127.0.0.1
+Allow from ::1
+Allow from localhost
 ```
 
 ## Notes

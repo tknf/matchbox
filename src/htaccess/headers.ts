@@ -80,3 +80,44 @@ export const securityHeaders = {
 		value: policy,
 	}),
 };
+
+/**
+ * CORS (Cross-Origin Resource Sharing) header helpers
+ */
+export const corsHeaders = {
+	allowOrigin: (origin: string): HeaderConfig => ({
+		action: "set",
+		name: "Access-Control-Allow-Origin",
+		value: origin,
+	}),
+
+	allowMethods: (methods: string[]): HeaderConfig => ({
+		action: "set",
+		name: "Access-Control-Allow-Methods",
+		value: methods.join(", "),
+	}),
+
+	allowHeaders: (headers: string[]): HeaderConfig => ({
+		action: "set",
+		name: "Access-Control-Allow-Headers",
+		value: headers.join(", "),
+	}),
+
+	allowCredentials: (allow = true): HeaderConfig => ({
+		action: "set",
+		name: "Access-Control-Allow-Credentials",
+		value: allow ? "true" : "false",
+	}),
+
+	maxAge: (seconds: number): HeaderConfig => ({
+		action: "set",
+		name: "Access-Control-Max-Age",
+		value: String(seconds),
+	}),
+
+	exposeHeaders: (headers: string[]): HeaderConfig => ({
+		action: "set",
+		name: "Access-Control-Expose-Headers",
+		value: headers.join(", "),
+	}),
+};

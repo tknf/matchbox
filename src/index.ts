@@ -1,19 +1,12 @@
 export type {
 	CgiContext,
 	ConfigObject,
+	HtaccessConfig,
 	MatchboxOptions,
 	ModuleInfo,
 	Page,
 	SessionCookieOptions,
-	HtaccessConfig,
 } from "./cgi.js";
-export { createCgi } from "./with-defaults.js";
-
 // Export htaccess utilities for advanced users
-export {
-	parseHtaccess,
-	createRewriteMiddleware,
-	createHeaderMiddleware,
-	createErrorDocumentMiddleware,
-	securityHeaders,
-} from "./htaccess/index.js";
+export { corsHeaders, parseHtaccess, securityHeaders } from "./htaccess/index.js";
+export { createCgi } from "./with-defaults.js";

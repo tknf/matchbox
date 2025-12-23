@@ -1,4 +1,5 @@
 {
+	"biome.enabled": false,
 	"oxc.enable": true,
 	"editor.formatOnSave": true,
 	"[typescript]": {

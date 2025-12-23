@@ -1,8 +1,8 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, test } from "vitest";
 import { generateCgiError, generateCgiInfo } from "./html.js";
 
 describe("generateCgiInfo", () => {
-	it("renders CGI info sections with data", () => {
+	test("renders CGI info sections with data", () => {
 		const renderInfo = generateCgiInfo({
 			$_SERVER: {
 				REQUEST_METHOD: "GET",
@@ -28,7 +28,7 @@ describe("generateCgiInfo", () => {
 		expect(html).toContain("2");
 	});
 
-	it("renders Edge runtime label when process is unavailable", () => {
+	test("renders Edge runtime label when process is unavailable", () => {
 		const originalProcess = (
 			globalThis as typeof globalThis & {
 				process?: NodeJS.Process;
@@ -61,7 +61,7 @@ describe("generateCgiInfo", () => {
 });
 
 describe("generateCgiError", () => {
-	it("renders runtime error details", () => {
+	test("renders runtime error details", () => {
 		const html = String(
 			generateCgiError({
 				error: new Error("Something went wrong"),

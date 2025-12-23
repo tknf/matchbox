@@ -1,12 +1,12 @@
-import { describe, expect, it } from "vitest";
-import { createCgiWithPages } from "./cgi.js";
+import { describe, expect, test } from "vitest";
+import { createCgiWithPages, type Page, type CgiContext } from "./cgi.js";
 import { parseHtaccess } from "./htaccess/parser.js";
 import type { HtaccessConfig } from "./htaccess/types.js";
 
-type ProjectName = "basic" | "rewrite" | "auth";
+type ProjectName = "basic" | "rewrite" | "auth" | "htaccess";
 
 type LoadedProject = {
-	pages: Array<{ urlPath: string; dirPath: string | null; component: any }>;
+	pages: Page[];
 	authMap: Record<string, string>;
 	htaccessConfig: HtaccessConfig;
 };
@@ -15,7 +15,7 @@ const escapeRegex = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$
 
 const loadProject = (project: ProjectName): LoadedProject => {
 	let basePath = "";
-	let modules: Record<string, any> = {};
+	let modules: Record<string, unknown> = {};
 	let urls: Record<string, string> = {};
 	let htpasswds: Record<string, string> = {};
 	let htaccessFiles: Record<string, string> = {};
@@ -85,6 +85,28 @@ const loadProject = (project: ProjectName): LoadedProject => {
 			});
 			break;
 		}
+		case "htaccess": {
+			basePath = "/mocks/app-htaccess/public";
+			modules = import.meta.glob("/mocks/app-htaccess/public/**/*.cgi.{tsx,jsx}", {
+				eager: true,
+			});
+			urls = import.meta.glob("/mocks/app-htaccess/public/**/*.cgi.{tsx,jsx}", {
+				eager: true,
+				query: "?url",
+				import: "default",
+			});
+			htpasswds = import.meta.glob("/mocks/app-htaccess/public/**/.htpasswd", {
+				eager: true,
+				query: "?raw",
+				import: "default",
+			});
+			htaccessFiles = import.meta.glob("/mocks/app-htaccess/public/**/.htaccess", {
+				eager: true,
+				query: "?raw",
+				import: "default",
+			});
+			break;
+		}
 	}
 
 	const basePathRegex = new RegExp(`^${escapeRegex(basePath)}`);
@@ -94,7 +116,7 @@ const loadProject = (project: ProjectName): LoadedProject => {
 		const urlPath = rawUrl.replace(basePathRegex, "").replace(/.tsx$/, "").replace(/.jsx$/, "");
 		const isIndex = urlPath.endsWith("/index.cgi") || urlPath === "/index.cgi";
 		const dirPath = isIndex ? urlPath.replace(/\/index\.cgi$/, "/") : null;
-		return { urlPath, dirPath, component: modules[key].default };
+		return { urlPath, dirPath, component: (modules[key] as any).default };
 	});
 
 	const authMap = Object.keys(htpasswds).reduce(
@@ -134,7 +156,7 @@ const createApp = (project: ProjectName) => {
 };
 
 describe("createCgi", () => {
-	it("renders HTML string responses with headers and session cookie", async () => {
+	test("renders HTML string responses with headers and session cookie", async () => {
 		const app = createApp("basic");
 
 		const res = await app.request("/test.cgi");
@@ -146,7 +168,7 @@ describe("createCgi", () => {
 		expect(text).toBe("<h1>Hello String</h1>");
 	});
 
-	it("passes request data into CGI-like globals", async () => {
+	test("passes request data into CGI-like globals", async () => {
 		const app = createApp("basic");
 
 		const res = await app.request("/data.cgi?from=query", {
@@ -168,7 +190,7 @@ describe("createCgi", () => {
 		});
 	});
 
-	it("handles JSX-like element responses", async () => {
+	test("handles JSX-like element responses", async () => {
 		const app = createApp("basic");
 
 		const res = await app.request("/jsx.cgi");
@@ -176,7 +198,7 @@ describe("createCgi", () => {
 		expect(res.headers.get("content-type")).toContain("text/html");
 	});
 
-	it("handles html tagged template responses", async () => {
+	test("handles html tagged template responses", async () => {
 		const app = createApp("basic");
 
 		const res = await app.request("/html.cgi");
@@ -184,7 +206,7 @@ describe("createCgi", () => {
 		expect(res.headers.get("content-type")).toContain("text/html");
 	});
 
-	it("keeps object responses as HTML when JSON header is not set", async () => {
+	test("keeps object responses as HTML when JSON header is not set", async () => {
 		const app = createApp("basic");
 
 		const res = await app.request("/object.cgi");
@@ -192,7 +214,7 @@ describe("createCgi", () => {
 		expect(res.headers.get("content-type")).toContain("text/html");
 	});
 
-	it("returns JSON when Content-Type is forced", async () => {
+	test("returns JSON when Content-Type is forced", async () => {
 		const app = createApp("basic");
 
 		const res = await app.request("/json.cgi");
@@ -202,7 +224,7 @@ describe("createCgi", () => {
 		expect(json).toEqual({ data: "forced JSON" });
 	});
 
-	it("returns default JSON when handler returns undefined", async () => {
+	test("returns default JSON when handler returns undefined", async () => {
 		const app = createApp("basic");
 
 		const res = await app.request("/json-default.cgi");
@@ -211,7 +233,7 @@ describe("createCgi", () => {
 		expect(json).toEqual({ success: true });
 	});
 
-	it("returns a Response object verbatim", async () => {
+	test("returns a Response object verbatim", async () => {
 		const app = createApp("basic");
 
 		const res = await app.request("/response.cgi");
@@ -221,7 +243,7 @@ describe("createCgi", () => {
 		expect(text).toBe("Custom Response");
 	});
 
-	it("parses session cookies into $_SESSION", async () => {
+	test("parses session cookies into $_SESSION", async () => {
 		const app = createApp("basic");
 
 		const sessionCookie = encodeURIComponent(JSON.stringify({ role: "admin" }));
@@ -232,18 +254,14 @@ describe("createCgi", () => {
 		expect(json).toEqual({ role: "admin" });
 	});
 
-	it("uses c.env when process is unavailable", async () => {
-		const originalProcess = (
-			globalThis as typeof globalThis & {
-				process?: NodeJS.Process;
-			}
-		).process;
+	test("uses c.env when process is unavailable", async () => {
+		const originalProcess = globalThis.process;
 		(globalThis as any).process = undefined;
 
 		try {
 			const app = createApp("basic");
 
-			const res = await app.request("/env.cgi", {}, { KEY: "value" } as any);
+			const res = await app.request("/env.cgi", {}, { KEY: "value" } as Record<string, unknown>);
 			const json = await res.json();
 			expect(json.KEY).toBe("value");
 		} finally {
@@ -251,18 +269,18 @@ describe("createCgi", () => {
 		}
 	});
 
-	it("falls back to empty env when process and c.env are missing", async () => {
-		const originalProcess = (
-			globalThis as typeof globalThis & {
-				process?: NodeJS.Process;
-			}
-		).process;
+	test("falls back to empty env when process and c.env are missing", async () => {
+		const originalProcess = globalThis.process;
 		(globalThis as any).process = undefined;
 
 		try {
 			const app = createApp("basic");
 
-			const res = await app.request("/env-empty.cgi", {}, null as any);
+			const res = await app.request(
+				"/env-empty.cgi",
+				{},
+				null as unknown as Record<string, unknown>,
+			);
 			const json = await res.json();
 			expect(json).toEqual({});
 		} finally {
@@ -270,7 +288,7 @@ describe("createCgi", () => {
 		}
 	});
 
-	it("handles redirect responses", async () => {
+	test("handles redirect responses", async () => {
 		const app = createApp("basic");
 
 		const res = await app.request("/redirect.cgi", { redirect: "manual" });
@@ -278,7 +296,7 @@ describe("createCgi", () => {
 		expect(res.headers.get("location")).toBe("/other");
 	});
 
-	it("routes requests via dirPath entries", async () => {
+	test("routes requests via dirPath entries", async () => {
 		const app = createApp("basic");
 
 		const res = await app.request("/dir/");
@@ -287,7 +305,7 @@ describe("createCgi", () => {
 		expect(text).toBe("dir-path");
 	});
 
-	it("redirects via rewrite rules", async () => {
+	test("redirects via rewrite rules", async () => {
 		const app = createApp("rewrite");
 
 		const redirectRes = await app.request("/old.cgi", { redirect: "manual" });
@@ -299,7 +317,7 @@ describe("createCgi", () => {
 		expect(rewriteRes.headers.get("location")).toBe("/fresh");
 	});
 
-	it("falls through when rewrite rules do not redirect", async () => {
+	test("falls through when rewrite rules do not redirect", async () => {
 		const app = createApp("rewrite");
 
 		const res = await app.request("/no-redirect.cgi");
@@ -307,7 +325,7 @@ describe("createCgi", () => {
 		expect(await res.text()).toBe("ok");
 	});
 
-	it("falls through when redirect rules do not match", async () => {
+	test("falls through when redirect rules do not match", async () => {
 		const app = createApp("rewrite");
 
 		const res = await app.request("/stay.cgi");
@@ -315,7 +333,7 @@ describe("createCgi", () => {
 		expect(await res.text()).toBe("stay");
 	});
 
-	it("handles rewrite rules under nested base paths", async () => {
+	test("handles rewrite rules under nested base paths", async () => {
 		const app = createApp("rewrite");
 
 		const redirectRes = await app.request("/docs/", { redirect: "manual" });
@@ -332,7 +350,7 @@ describe("createCgi", () => {
 		expect(await fallthrough.text()).toBe("ok");
 	});
 
-	it("protects routes with basic auth", async () => {
+	test("protects routes with basic auth", async () => {
 		const app = createApp("auth");
 
 		const unauthenticated = await app.request("/auth/secure.cgi");
@@ -345,7 +363,7 @@ describe("createCgi", () => {
 		expect(authenticated.status).toBe(200);
 	});
 
-	it("skips auth middleware when credentials are empty", async () => {
+	test("skips auth middleware when credentials are empty", async () => {
 		const app = createApp("auth");
 
 		const res = await app.request("/empty/open.cgi");
@@ -353,14 +371,14 @@ describe("createCgi", () => {
 		expect(await res.text()).toBe("open");
 	});
 
-	it("applies basic auth to non-root directories", async () => {
+	test("applies basic auth to non-root directories", async () => {
 		const app = createApp("auth");
 
 		const unauthenticated = await app.request("/admin/page.cgi");
 		expect(unauthenticated.status).toBe(401);
 	});
 
-	it("supports dirPath at the root", async () => {
+	test("supports dirPath at the root", async () => {
 		const app = createApp("basic");
 
 		const res = await app.request("/");
@@ -368,7 +386,7 @@ describe("createCgi", () => {
 		expect(await res.text()).toBe("root-dir");
 	});
 
-	it("captures file uploads in $_FILES", async () => {
+	test("captures file uploads in $_FILES", async () => {
 		const app = createApp("basic");
 
 		const form = new FormData();
@@ -386,7 +404,7 @@ describe("createCgi", () => {
 		expect(json.postKeys).toEqual(["note"]);
 	});
 
-	it("falls back to empty body when parsing fails", async () => {
+	test("falls back to empty body when parsing fails", async () => {
 		const app = createApp("basic");
 
 		const originalFormData = Request.prototype.formData;
@@ -410,7 +428,7 @@ describe("createCgi", () => {
 		}
 	});
 
-	it("renders runtime errors as HTML", async () => {
+	test("renders runtime errors as HTML", async () => {
 		const app = createApp("basic");
 
 		const res = await app.request("/boom.cgi");
@@ -420,7 +438,7 @@ describe("createCgi", () => {
 		expect(text).toContain("boom");
 	});
 
-	it("prevents access to .htaccess files", async () => {
+	test("prevents access to .htaccess files", async () => {
 		const app = createApp("basic");
 
 		const res = await app.request("/.htaccess");
@@ -429,7 +447,7 @@ describe("createCgi", () => {
 		expect(text).toBe("Forbidden");
 	});
 
-	it("prevents access to .htpasswd files", async () => {
+	test("prevents access to .htpasswd files", async () => {
 		const app = createApp("basic");
 
 		const res = await app.request("/admin/.htpasswd");
@@ -438,7 +456,7 @@ describe("createCgi", () => {
 		expect(text).toBe("Forbidden");
 	});
 
-	it("allows access to files containing protected filenames in their name", async () => {
+	test("allows access to files containing protected filenames in their name", async () => {
 		const app = createApp("basic");
 
 		// These should NOT be blocked - they just contain the protected filename
@@ -449,7 +467,7 @@ describe("createCgi", () => {
 		expect(res2.status).not.toBe(403);
 	});
 
-	it("prevents access to protected files in nested paths", async () => {
+	test("prevents access to protected files in nested paths", async () => {
 		const app = createApp("basic");
 
 		const res1 = await app.request("/deeply/nested/path/.htaccess");
@@ -465,9 +483,9 @@ describe("createCgi", () => {
 		expect(res4.status).toBe(403);
 	});
 
-	it("supports custom session cookie name", async () => {
-		const { pages, authMap, rewriteMap } = loadProject("basic");
-		const app = createCgiWithPages(pages, {}, authMap, rewriteMap, {
+	test("supports custom session cookie name", async () => {
+		const { pages, authMap, htaccessConfig } = loadProject("basic");
+		const app = createCgiWithPages(pages, {}, authMap, htaccessConfig, {
 			sessionCookie: {
 				name: "_CUSTOM_SESSION",
 			},
@@ -479,9 +497,9 @@ describe("createCgi", () => {
 		expect(res.headers.get("set-cookie")).not.toContain("_SESSION_ID=");
 	});
 
-	it("supports custom session cookie options", async () => {
-		const { pages, authMap, rewriteMap } = loadProject("basic");
-		const app = createCgiWithPages(pages, {}, authMap, rewriteMap, {
+	test("supports custom session cookie options", async () => {
+		const { pages, authMap, htaccessConfig } = loadProject("basic");
+		const app = createCgiWithPages(pages, {}, authMap, htaccessConfig, {
 			sessionCookie: {
 				path: "/admin",
 				sameSite: "Strict",
@@ -498,13 +516,14 @@ describe("createCgi", () => {
 		expect(cookie).toContain("Max-Age=3600");
 	});
 
-	it("supports custom middleware", async () => {
-		const { pages, authMap, rewriteMap } = loadProject("basic");
-		const app = createCgiWithPages(pages, {}, authMap, rewriteMap, {
+	test("supports custom middleware", async () => {
+		const { pages, authMap, htaccessConfig } = loadProject("basic");
+		const app = createCgiWithPages(pages, {}, authMap, htaccessConfig, {
 			middleware: [
 				async (c, next) => {
 					c.header("X-Custom-Header", "test-value");
 					await next();
+					return undefined;
 				},
 			],
 		});
@@ -513,10 +532,10 @@ describe("createCgi", () => {
 		expect(res.headers.get("X-Custom-Header")).toBe("test-value");
 	});
 
-	it("supports custom logger", async () => {
+	test("supports custom logger", async () => {
 		const logs: string[] = [];
-		const { pages, authMap, rewriteMap } = loadProject("basic");
-		const app = createCgiWithPages(pages, {}, authMap, rewriteMap, {
+		const { pages, authMap, htaccessConfig } = loadProject("basic");
+		const app = createCgiWithPages(pages, {}, authMap, htaccessConfig, {
 			logger: (message) => {
 				logs.push(message);
 			},
@@ -528,8 +547,8 @@ describe("createCgi", () => {
 		expect(logs[0]).toBe("Test log message");
 	});
 
-	it("returns module list from get_modules", async () => {
-		const { pages, authMap, rewriteMap } = loadProject("basic");
+	test("returns module list from get_modules", async () => {
+		const { pages, authMap, htaccessConfig } = loadProject("basic");
 
 		// Create a test page that uses get_modules
 		const testPages = [
@@ -537,14 +556,14 @@ describe("createCgi", () => {
 			{
 				urlPath: "/modules.cgi",
 				dirPath: null,
-				component: (ctx: any) => {
+				component: (ctx: CgiContext) => {
 					ctx.header("Content-Type", "application/json");
 					return ctx.get_modules();
 				},
 			},
 		];
 
-		const testApp = createCgiWithPages(testPages, {}, authMap, rewriteMap);
+		const testApp = createCgiWithPages(testPages, {}, authMap, htaccessConfig);
 		const res = await testApp.request("/modules.cgi");
 		const json = await res.json();
 		expect(Array.isArray(json)).toBe(true);
@@ -552,9 +571,9 @@ describe("createCgi", () => {
 		expect(json[0]).toHaveProperty("urlPath");
 	});
 
-	it("enforces trailing slash when configured", async () => {
-		const { pages, authMap, rewriteMap } = loadProject("basic");
-		const app = createCgiWithPages(pages, {}, authMap, rewriteMap, {
+	test("enforces trailing slash when configured", async () => {
+		const { pages, authMap, htaccessConfig } = loadProject("basic");
+		const app = createCgiWithPages(pages, {}, authMap, htaccessConfig, {
 			enforceTrailingSlash: true,
 		});
 
@@ -563,9 +582,9 @@ describe("createCgi", () => {
 		expect(res.headers.get("location")).toBe("/dir/");
 	});
 
-	it("does not redirect paths with dots when trailing slash is enforced", async () => {
-		const { pages, authMap, rewriteMap } = loadProject("basic");
-		const app = createCgiWithPages(pages, {}, authMap, rewriteMap, {
+	test("does not redirect paths with dots when trailing slash is enforced", async () => {
+		const { pages, authMap, htaccessConfig } = loadProject("basic");
+		const app = createCgiWithPages(pages, {}, authMap, htaccessConfig, {
 			enforceTrailingSlash: true,
 		});
 
@@ -574,9 +593,9 @@ describe("createCgi", () => {
 		expect(res.status).not.toBe(301);
 	});
 
-	it("does not redirect paths with version numbers when trailing slash is enforced", async () => {
-		const { pages, authMap, rewriteMap } = loadProject("basic");
-		const app = createCgiWithPages(pages, {}, authMap, rewriteMap, {
+	test("does not redirect paths with version numbers when trailing slash is enforced", async () => {
+		const { pages, authMap, htaccessConfig } = loadProject("basic");
+		const app = createCgiWithPages(pages, {}, authMap, htaccessConfig, {
 			enforceTrailingSlash: true,
 		});
 
@@ -586,9 +605,9 @@ describe("createCgi", () => {
 		expect(res.status).not.toBe(301);
 	});
 
-	it("does not redirect paths that already have trailing slash", async () => {
-		const { pages, authMap, rewriteMap } = loadProject("basic");
-		const app = createCgiWithPages(pages, {}, authMap, rewriteMap, {
+	test("does not redirect paths that already have trailing slash", async () => {
+		const { pages, authMap, htaccessConfig } = loadProject("basic");
+		const app = createCgiWithPages(pages, {}, authMap, htaccessConfig, {
 			enforceTrailingSlash: true,
 		});
 
@@ -596,9 +615,9 @@ describe("createCgi", () => {
 		expect(res.status).not.toBe(301);
 	});
 
-	it("supports middleware with early return", async () => {
-		const { pages, authMap, rewriteMap } = loadProject("basic");
-		const app = createCgiWithPages(pages, {}, authMap, rewriteMap, {
+	test("supports middleware with early return", async () => {
+		const { pages, authMap, htaccessConfig } = loadProject("basic");
+		const app = createCgiWithPages(pages, {}, authMap, htaccessConfig, {
 			middleware: [
 				async (c) => {
 					// Middleware returns Response directly (early return)
@@ -613,5 +632,17 @@ describe("createCgi", () => {
 		expect(res.status).toBe(200);
 		const text = await res.text();
 		expect(text).toBe("Early return");
+	});
+});
+
+describe("Access Control (Order/Allow/Deny)", () => {
+	test("should deny access when 'Deny from all' is set", async () => {
+		const { pages, authMap, htaccessConfig } = loadProject("htaccess");
+		const app = createCgiWithPages(pages, {}, authMap, htaccessConfig);
+
+		const res = await app.request("/access-test/");
+		expect(res.status).toBe(403);
+		const text = await res.text();
+		expect(text).toBe("Forbidden");
 	});
 });

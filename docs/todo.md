@@ -22,9 +22,11 @@
 ## Apache .htaccess Features
 
 For a comprehensive list of Apache .htaccess features and implementation status, see:
+
 - **[Apache .htaccess Features Reference](./htaccess-features.md)** - Complete feature list, migration guide, and usage examples
 
 ### Implemented in v0.3.0
+
 - ✅ Basic Authentication (.htpasswd)
 - ✅ RewriteCond - Conditional URL rewriting
 - ✅ RewriteRule with complete flags ([L], [R], [F], [G], [NC], [QSA], [QSD], [NE])
@@ -32,6 +34,7 @@ For a comprehensive list of Apache .htaccess features and implementation status,
 - ✅ Header directive - Security headers (X-Frame-Options, CSP, HSTS, etc.)
 
 ### Future Enhancements
+
 - [ ] Digest authentication (.htdigest)
 - [ ] Group-based authorization (.htgroup)
 - [ ] IP-based access control

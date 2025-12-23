@@ -1,18 +1,22 @@
 import { type Context, Hono } from "hono";
-import { basicAuth } from "hono/basic-auth";
-import { getCookie, setCookie } from "hono/cookie";
+import { getCookie } from "hono/cookie";
 import type { HtmlEscapedString } from "hono/utils/html";
 import type { ContentfulStatusCode, RedirectStatusCode } from "hono/utils/http-status";
 import { generateCgiError, generateCgiInfo } from "./html.js";
-import { createRewriteMiddleware } from "./htaccess/rewrite.js";
-import { createHeaderMiddleware } from "./htaccess/headers.js";
-import { createErrorDocumentMiddleware } from "./htaccess/error-document.js";
 import type { HtaccessConfig } from "./htaccess/types.js";
+import {
+	applyBasicAuth,
+	applyHtaccessMiddleware,
+	applyErrorDocumentMiddleware,
+	getSessionFromCookie,
+	saveSessionToCookie,
+	applyProtectedFilesMiddleware,
+	applyTrailingSlashMiddleware,
+} from "./middleware/index.js";
 
 declare const __version__: string;
 
-// biome-ignore lint/suspicious/noExplicitAny: Child can be any
-export type ConfigObject = Record<string, any>;
+export type ConfigObject = Record<string, unknown>;
 
 /**
  * --- Session Cookie Configuration ---
@@ -63,12 +67,10 @@ export interface CgiContext<ConfigType = ConfigObject> {
 	$_GET: Record<string, string>;
 	$_POST: Record<string, string>;
 	$_FILES: Record<string, File | File[]>;
-	// biome-ignore lint/suspicious/noExplicitAny: request can be any
-	$_REQUEST: Record<string, any>;
-	// biome-ignore lint/suspicious/noExplicitAny: session can be any
-	$_SESSION: Record<string, any>;
+	$_REQUEST: Record<string, unknown>;
+	$_SESSION: Record<string, unknown>;
 	$_COOKIE: Record<string, string>;
-	$_ENV: Record<string, string | undefined>;
+	$_ENV: Record<string, unknown>;
 	$_SERVER: {
 		REQUEST_METHOD: string;
 		REQUEST_URI: string;
@@ -77,8 +79,7 @@ export interface CgiContext<ConfigType = ConfigObject> {
 		SCRIPT_NAME: string;
 		PATH_INFO: string;
 		QUERY_STRING: string;
-		// biome-ignore lint/suspicious/noExplicitAny: server vars can be any
-		[key: string]: any;
+		[key: string]: unknown;
 	};
 	config: ConfigType;
 	c: Context;
@@ -97,8 +98,7 @@ export interface CgiContext<ConfigType = ConfigObject> {
 export type Page = {
 	urlPath: string;
 	dirPath: string | null;
-	// biome-ignore lint/suspicious/noExplicitAny: handler output varies by Content-Type
-	component: (context: CgiContext) => any | Promise<any>;
+	component: (context: CgiContext) => unknown | Promise<unknown>;
 };
 
 // Legacy types removed - now using HtaccessConfig from htaccess module
@@ -110,9 +110,15 @@ type RedirectObject = {
 	status: number;
 };
 
-// biome-ignore lint/suspicious/noExplicitAny: redirect object check
-const isRedirectObject = (obj: any): obj is RedirectObject => {
-	return obj && obj.__type === "redirect" && typeof obj.url === "string";
+const isRedirectObject = (obj: unknown): obj is RedirectObject => {
+	return (
+		typeof obj === "object" &&
+		obj !== null &&
+		"__type" in obj &&
+		obj.__type === "redirect" &&
+		"url" in obj &&
+		typeof obj.url === "string"
+	);
 };
 
 /**
@@ -126,7 +132,6 @@ export const createCgiWithPages = (
 	options: MatchboxOptions = {},
 ) => {
 	const app = new Hono();
-	const SESS_KEY = options.sessionCookie?.name || "_SESSION_ID";
 
 	// Apply custom middleware if provided
 	if (options.middleware && options.middleware.length > 0) {
@@ -142,75 +147,20 @@ export const createCgiWithPages = (
 	}
 
 	// Prevent access to sensitive configuration files
-	const protectedFiles = [".htaccess", ".htpasswd", ".htdigest", ".htgroup"];
-	app.use("*", async (c, next) => {
-		const path = c.req.path;
-		const lastSegment = path.slice(path.lastIndexOf("/") + 1);
-		if (protectedFiles.some((file) => lastSegment === file)) {
-			return c.text("Forbidden", 403);
-		}
-		await next();
-	});
+	applyProtectedFilesMiddleware(app);
 
 	// Enforce trailing slash if configured
 	if (options.enforceTrailingSlash) {
-		app.use("*", async (c, next) => {
-			const path = c.req.path;
-			if (!path.endsWith("/") && !path.includes(".")) {
-				return c.redirect(`${path}/`, 301);
-			}
-			await next();
-		});
+		applyTrailingSlashMiddleware(app);
 	}
 
-	// 1. Headers Middleware (early to set security headers)
-	Object.entries(htaccessConfig).forEach(([dir, config]) => {
-		if (config.headers.length === 0) return;
-		const basePath = dir === "/" ? "" : dir.replace(/\/$/, "");
-		app.use(`${basePath}/*`, createHeaderMiddleware(config.headers));
-	});
+	// Apply htaccess middleware (headers, rewrite, access control)
+	applyHtaccessMiddleware(app, htaccessConfig);
 
-	// 2. Rewrite / Redirect Middleware
-	Object.entries(htaccessConfig).forEach(([dir, config]) => {
-		const allRules = [
-			...config.rewriteRules,
-			...config.redirects.map((r) => ({
-				type: "rewrite" as const,
-				pattern: `^${r.source}$`,
-				target: r.target,
-				flags: { redirect: r.code },
-				conditions: [],
-			})),
-		];
-		if (allRules.length === 0) return;
-		const basePath = dir === "/" ? "" : dir.replace(/\/$/, "");
-		app.use(`${basePath}/*`, createRewriteMiddleware(allRules, basePath));
-	});
+	// Apply Basic Auth middleware
+	applyBasicAuth(app, authMap);
 
-	// 2. Basic Auth Middleware
-	Object.entries(authMap).forEach(([dir, content]) => {
-		const credentials = content
-			.split("\n")
-			.map((line) => line.trim())
-			.filter((line) => line && !line.startsWith("#"))
-			.map((line) => {
-				const [username, password] = line.split(":");
-				return { username, password };
-			});
-		if (credentials.length > 0) {
-			const authPath = dir === "/" ? "*" : `${dir.replace(/\/$/, "")}/*`;
-			app.use(authPath, async (c, next) => {
-				const handler = basicAuth({
-					verifyUser: (u, p) =>
-						credentials.some((cred) => cred.username === u && cred.password === p),
-					realm: "Restricted Area",
-				});
-				return handler(c, next);
-			});
-		}
-	});
-
-	// 3. Page Routing
+	// 4. Page Routing
 	pages.forEach(({ urlPath, dirPath, component }) => {
 		const routes = [urlPath, `${urlPath}/*`];
 		if (dirPath) {
@@ -224,14 +174,13 @@ export const createCgiWithPages = (
 			app.all(route, async (c) => {
 				const $_GET = c.req.query();
 				const body = await c.req.parseBody({ all: true }).catch(() => ({}));
-				// biome-ignore lint/suspicious/noExplicitAny: body can be any
-				const $_POST: Record<string, any> = {};
+				const $_POST: Record<string, string> = {};
 				const $_FILES: Record<string, File | File[]> = {};
 				for (const [key, value] of Object.entries(body)) {
 					if (value instanceof File || (Array.isArray(value) && value[0] instanceof File)) {
 						$_FILES[key] = value as File | File[];
 					} else {
-						$_POST[key] = value;
+						$_POST[key] = String(value);
 					}
 				}
 				const $_COOKIE = getCookie(c);
@@ -240,18 +189,14 @@ export const createCgiWithPages = (
 					...$_GET,
 					...$_POST,
 				};
-				// biome-ignore lint/suspicious/noExplicitAny: environment can be any
-				const $_ENV: Record<string, any> =
-					typeof process !== "undefined" && process.env ? process.env : c.env || {};
+				const $_ENV: Record<string, unknown> = (
+					typeof process !== "undefined" && process.env ? process.env : c.env || {}
+				) as Record<string, unknown>;
 
-				// biome-ignore lint/suspicious/noExplicitAny: session data can be any
-				let $_SESSION: Record<string, any> = {};
-				const sRaw = getCookie(c, SESS_KEY);
-				if (sRaw) {
-					try {
-						$_SESSION = JSON.parse(decodeURIComponent(sRaw));
-					} catch {}
-				}
+				let $_SESSION: Record<string, unknown> = getSessionFromCookie(
+					c,
+					options.sessionCookie?.name,
+				);
 
 				let responseStatus = 200;
 				const responseHeaders: Record<string, string> = {
@@ -327,44 +272,21 @@ export const createCgiWithPages = (
 
 				try {
 					const result = await component(context);
-					const sessionValue = encodeURIComponent(JSON.stringify($_SESSION));
-					const sessionOptions: {
-						path: string;
-						httpOnly: boolean;
-						sameSite: "Strict" | "Lax" | "None";
-						secure?: boolean;
-						domain?: string;
-						maxAge?: number;
-					} = {
-						path: options.sessionCookie?.path || "/",
-						httpOnly: true,
-						sameSite: options.sessionCookie?.sameSite || "Lax",
-					};
 
-					if (options.sessionCookie?.secure !== undefined) {
-						sessionOptions.secure = options.sessionCookie.secure;
-					}
-					if (options.sessionCookie?.domain) {
-						sessionOptions.domain = options.sessionCookie.domain;
-					}
-					if (options.sessionCookie?.maxAge) {
-						sessionOptions.maxAge = options.sessionCookie.maxAge;
-					}
+					// Save session to cookie
+					saveSessionToCookie(c, $_SESSION, options.sessionCookie);
 
 					// Redirect
 					if (isRedirectObject(result)) {
-						setCookie(c, SESS_KEY, sessionValue, sessionOptions);
 						return c.redirect(result.url, result.status as RedirectStatusCode);
 					}
 
 					// Raw Response
 					if (result instanceof Response) {
-						setCookie(c, SESS_KEY, sessionValue, sessionOptions);
 						return result;
 					}
 
-					// Set session cookie and custom headers
-					setCookie(c, SESS_KEY, sessionValue, sessionOptions);
+					// Set custom headers
 					Object.entries(responseHeaders).forEach(([key, value]) => {
 						c.header(key, value);
 					});
@@ -374,30 +296,20 @@ export const createCgiWithPages = (
 
 					// If Content-Type is explicitly set to JSON, return JSON
 					if (contentType?.includes("application/json")) {
-						return c.json(
-							// biome-ignore lint/suspicious/noExplicitAny: to JSON response
-							(result ?? { success: true }) as any,
-							responseStatus as ContentfulStatusCode,
-						);
+						return c.json(result ?? { success: true }, responseStatus as ContentfulStatusCode);
 					}
 
 					// Default to HTML response
-					return c.html(result, responseStatus as ContentfulStatusCode);
-
-					// biome-ignore lint/suspicious/noExplicitAny: catch-all
-				} catch (error: any) {
+					return c.html(String(result ?? ""), responseStatus as ContentfulStatusCode);
+				} catch (error: unknown) {
 					return c.html(generateCgiError({ error, $_SERVER }), 500);
 				}
 			});
 		});
 	});
 
-	// 3. Error Document Middleware (runs after everything)
-	Object.entries(htaccessConfig).forEach(([dir, config]) => {
-		if (config.errorDocuments.length === 0) return;
-		const basePath = dir === "/" ? "" : dir.replace(/\/$/, "");
-		app.use(`${basePath}/*`, createErrorDocumentMiddleware(config.errorDocuments, basePath));
-	});
+	// Apply error document middleware (runs last, after everything)
+	applyErrorDocumentMiddleware(app, htaccessConfig);
 
 	return app;
 };

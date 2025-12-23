@@ -1,6 +1,11 @@
 import type { Context } from "hono";
 import type { RewriteCondition, RewriteRuleConfig } from "./types.js";
-import { applyRewriteFlags, buildVariableContext, expandVariables, testCondition } from "./utils.js";
+import {
+	applyRewriteFlags,
+	buildVariableContext,
+	expandVariables,
+	testCondition,
+} from "./utils.js";
 
 /**
  * Evaluate all conditions for a rewrite rule
@@ -60,7 +65,12 @@ export function createRewriteMiddleware(
 			target = expandVariables(target, varContext);
 
 			// Handle relative paths - prefix with basePath if target doesn't start with /
-			if (target !== "-" && !target.startsWith("/") && !target.startsWith("http://") && !target.startsWith("https://")) {
+			if (
+				target !== "-" &&
+				!target.startsWith("/") &&
+				!target.startsWith("http://") &&
+				!target.startsWith("https://")
+			) {
 				target = basePath === "" ? `/${target}` : `${basePath}/${target}`;
 			}
 

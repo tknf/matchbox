@@ -14,6 +14,8 @@ export interface DirectoryConfig {
 	redirects: RedirectConfig[];
 	errorDocuments: ErrorDocumentConfig[];
 	headers: HeaderConfig[];
+	authConfig?: AuthConfig;
+	accessControl?: AccessControlConfig;
 }
 
 /**
@@ -83,6 +85,44 @@ export interface RedirectConfig {
 	code: number;
 	source: string;
 	target: string;
+}
+
+/**
+ * Authentication configuration
+ */
+export interface AuthConfig {
+	authType?: "Basic" | "Digest";
+	authName?: string;
+	authUserFile?: string;
+	authGroupFile?: string;
+	authDigestProvider?: string;
+	require?: RequireConfig[];
+}
+
+/**
+ * Require directive configuration
+ */
+export interface RequireConfig {
+	type: "valid-user" | "user" | "group" | "ip" | "host" | "all";
+	value?: string | string[]; // For user names, group names, IPs, or hosts
+	granted?: boolean; // For "all granted" or "all denied"
+}
+
+/**
+ * Access Control configuration (Apache 2.2 style - Order/Allow/Deny)
+ */
+export interface AccessControlConfig {
+	order?: "allow,deny" | "deny,allow" | "mutual-failure";
+	allow: AccessRule[];
+	deny: AccessRule[];
+}
+
+/**
+ * Access rule for Allow/Deny directives
+ */
+export interface AccessRule {
+	type: "all" | "ip" | "host" | "env";
+	value?: string | string[]; // IP addresses, hostnames, or environment variables
 }
 
 /**

@@ -1,6 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
-import { describe, expect, it } from "vitest";
+import { describe, expect, test } from "vitest";
 import { MatchboxPlugin } from "./plugin.js";
 
 describe("MatchboxPlugin", () => {
@@ -17,7 +17,7 @@ describe("MatchboxPlugin", () => {
 		return undefined;
 	};
 
-	it("returns Vite config defaults", () => {
+	test("returns Vite config defaults", () => {
 		const plugin = MatchboxPlugin({ publicDir: "static" });
 		const config = runHook(plugin.config);
 
@@ -45,7 +45,7 @@ describe("MatchboxPlugin", () => {
 		});
 	});
 
-	it("removes CGI and htaccess artifacts after build", () => {
+	test("removes CGI and htaccess artifacts after build", () => {
 		const plugin = MatchboxPlugin({ publicDir: "public" });
 		const root = fs.mkdtempSync(path.join(process.cwd(), "tmp-matchbox-"));
 		const outDir = path.join(root, "dist");
@@ -83,7 +83,7 @@ describe("MatchboxPlugin", () => {
 		}
 	});
 
-	it("skips cleanup when output directory is missing", () => {
+	test("skips cleanup when output directory is missing", () => {
 		const plugin = MatchboxPlugin();
 		const root = fs.mkdtempSync(path.join(process.cwd(), "tmp-matchbox-"));
 
