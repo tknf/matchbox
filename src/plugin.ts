@@ -27,7 +27,7 @@ export const MatchboxPlugin = (options: MatchboxPluginOptions = {}): Plugin => {
 					exclude: ["matchbox"],
 				},
 				ssr: {
-					noExternal: ["matchbox"],
+					noExternal: true,
 				},
 				// .htpasswd, .htaccess, .htdigest, .htgroup files in /public should be treated as raw assets
 				assetsInclude: [
