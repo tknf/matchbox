@@ -95,7 +95,7 @@ const htaccessConfig = {
 
 See the [full migration guide](./docs/htaccess-features.md#migration-from-v02x-to-v03) for more details.
 
-## [0.2.6] - 2024-12-XX
+## [0.2.6] - 2024-12-23
 
 ### Fixed
 
