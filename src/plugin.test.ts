@@ -26,7 +26,7 @@ describe("MatchboxPlugin", () => {
 				exclude: ["matchbox"],
 			},
 			ssr: {
-				noExternal: ["matchbox"],
+				noExternal: true,
 			},
 			assetsInclude: [
 				"static/**/.htpasswd",
