@@ -1,6 +1,6 @@
 {
 	"name": "@tknf/matchbox",
-	"version": "0.2.5",
+	"version": "0.2.6",
 	"description": "A Simple Web Server Framework",
 	"keywords": [
 		"cgi",
