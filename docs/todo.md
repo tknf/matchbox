@@ -19,10 +19,24 @@
 - [x] Implemented custom logger support
 - [x] Created comprehensive security documentation
 
-## Future Enhancements
+## Apache .htaccess Features
 
-- [ ] Implement digest authentication using .htdigest files
-- [ ] Implement group-based authorization using .htgroup files
+For a comprehensive list of Apache .htaccess features and implementation status, see:
+- **[Apache .htaccess Features Reference](./htaccess-features.md)** - Complete feature list, migration guide, and usage examples
+
+### Implemented in v0.3.0
+- ✅ Basic Authentication (.htpasswd)
+- ✅ RewriteCond - Conditional URL rewriting
+- ✅ RewriteRule with complete flags ([L], [R], [F], [G], [NC], [QSA], [QSD], [NE])
+- ✅ ErrorDocument - Custom error pages
+- ✅ Header directive - Security headers (X-Frame-Options, CSP, HSTS, etc.)
+
+### Future Enhancements
+- [ ] Digest authentication (.htdigest)
+- [ ] Group-based authorization (.htgroup)
+- [ ] IP-based access control
+- [ ] MIME type configuration
+- [ ] Caching and compression
+- [ ] Directory indexing customization
 - [ ] Add built-in CSRF token support
 - [ ] Add rate limiting middleware
-- [ ] Add Content Security Policy helpers

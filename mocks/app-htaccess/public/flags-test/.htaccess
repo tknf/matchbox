@@ -1,0 +1,6 @@
+RewriteRule ^forbidden$ - [F]
+RewriteRule ^gone$ - [G]
+RewriteRule ^append$ /test.cgi?from=rewrite [QSA,R=302]
+RewriteRule ^discard$ /test.cgi [QSD,R=302]
+RewriteRule ^last$ /test.cgi [L]
+RewriteRule ^last$ /should-not-match [R=302]

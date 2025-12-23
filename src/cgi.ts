@@ -4,6 +4,10 @@ import { getCookie, setCookie } from "hono/cookie";
 import type { HtmlEscapedString } from "hono/utils/html";
 import type { ContentfulStatusCode, RedirectStatusCode } from "hono/utils/http-status";
 import { generateCgiError, generateCgiInfo } from "./html.js";
+import { createRewriteMiddleware } from "./htaccess/rewrite.js";
+import { createHeaderMiddleware } from "./htaccess/headers.js";
+import { createErrorDocumentMiddleware } from "./htaccess/error-document.js";
+import type { HtaccessConfig } from "./htaccess/types.js";
 
 declare const __version__: string;
 
@@ -97,21 +101,8 @@ export type Page = {
 	component: (context: CgiContext) => any | Promise<any>;
 };
 
-type RedirectRule = {
-	type: "redirect";
-	code: string;
-	source: string;
-	target: string;
-};
-
-type RewriteRule = {
-	type: "rewrite";
-	pattern: string;
-	target: string;
-	flags: string;
-};
-
-export type RewriteMap = Record<string, Array<RedirectRule | RewriteRule>>;
+// Legacy types removed - now using HtaccessConfig from htaccess module
+export type { HtaccessConfig } from "./htaccess/types.js";
 
 type RedirectObject = {
 	__type: "redirect";
@@ -131,7 +122,7 @@ export const createCgiWithPages = (
 	pages: Page[],
 	siteConfig: ConfigObject = {},
 	authMap: Record<string, string> = {},
-	rewriteMap: RewriteMap = {},
+	htaccessConfig: HtaccessConfig = {},
 	options: MatchboxOptions = {},
 ) => {
 	const app = new Hono();
@@ -172,35 +163,28 @@ export const createCgiWithPages = (
 		});
 	}
 
-	// 1. Rewrite / Redirect Middleware
-	Object.entries(rewriteMap).forEach(([dir, rules]) => {
+	// 1. Headers Middleware (early to set security headers)
+	Object.entries(htaccessConfig).forEach(([dir, config]) => {
+		if (config.headers.length === 0) return;
 		const basePath = dir === "/" ? "" : dir.replace(/\/$/, "");
-		app.use(`${basePath}/*`, async (c, next) => {
-			const relPath = c.req.path.replace(basePath, "") || "/";
-			for (const rule of rules) {
-				// Redirect Rule
-				if (rule.type === "redirect") {
-					if (relPath === rule.source) {
-						return c.redirect(
-							rule.target,
-							(Number.parseInt(rule.code, 10) || 302) as RedirectStatusCode,
-						);
-					}
-				}
-				// Rewrite Rule
-				else if (rule.type === "rewrite") {
-					const regex = new RegExp(rule.pattern);
-					if (regex.test(relPath)) {
-						const target = rule.target.startsWith("/") ? rule.target : `${basePath}/${rule.target}`;
-						if (rule.flags.includes("R")) {
-							const code = rule.flags.match(/R=(\d+)/)?.[1] || "302";
-							return c.redirect(target, Number.parseInt(code, 10) as RedirectStatusCode);
-						}
-					}
-				}
-			}
-			await next();
-		});
+		app.use(`${basePath}/*`, createHeaderMiddleware(config.headers));
+	});
+
+	// 2. Rewrite / Redirect Middleware
+	Object.entries(htaccessConfig).forEach(([dir, config]) => {
+		const allRules = [
+			...config.rewriteRules,
+			...config.redirects.map((r) => ({
+				type: "rewrite" as const,
+				pattern: `^${r.source}$`,
+				target: r.target,
+				flags: { redirect: r.code },
+				conditions: [],
+			})),
+		];
+		if (allRules.length === 0) return;
+		const basePath = dir === "/" ? "" : dir.replace(/\/$/, "");
+		app.use(`${basePath}/*`, createRewriteMiddleware(allRules, basePath));
 	});
 
 	// 2. Basic Auth Middleware
@@ -406,6 +390,13 @@ export const createCgiWithPages = (
 				}
 			});
 		});
+	});
+
+	// 3. Error Document Middleware (runs after everything)
+	Object.entries(htaccessConfig).forEach(([dir, config]) => {
+		if (config.errorDocuments.length === 0) return;
+		const basePath = dir === "/" ? "" : dir.replace(/\/$/, "");
+		app.use(`${basePath}/*`, createErrorDocumentMiddleware(config.errorDocuments, basePath));
 	});
 
 	return app;

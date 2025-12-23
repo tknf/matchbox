@@ -1,12 +1,14 @@
 import { describe, expect, it } from "vitest";
-import { createCgiWithPages, type RewriteMap } from "./cgi.js";
+import { createCgiWithPages } from "./cgi.js";
+import { parseHtaccess } from "./htaccess/parser.js";
+import type { HtaccessConfig } from "./htaccess/types.js";
 
 type ProjectName = "basic" | "rewrite" | "auth";
 
 type LoadedProject = {
 	pages: Array<{ urlPath: string; dirPath: string | null; component: any }>;
 	authMap: Record<string, string>;
-	rewriteMap: RewriteMap;
+	htaccessConfig: HtaccessConfig;
 };
 
 const escapeRegex = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -104,43 +106,31 @@ const loadProject = (project: ProjectName): LoadedProject => {
 		{} as Record<string, string>,
 	);
 
-	const rewriteMap = Object.keys(htaccessFiles).reduce((acc, key) => {
+	const htaccessConfig = Object.keys(htaccessFiles).reduce((acc, key) => {
 		const dir = key.replace(basePathRegex, "").replace(/\.htaccess$/, "") || "/";
-		const lines = htaccessFiles[key].split("\n");
-		const rules = lines
-			.map((line) => {
-				const l = line.trim();
-				if (!l || l.startsWith("#")) return null;
-				const parts = l.split(/\s+/);
-				if (parts[0] === "RewriteRule") {
-					return {
-						type: "rewrite",
-						pattern: parts[1],
-						target: parts[2],
-						flags: parts[3] || "",
-					} as RewriteMap[string][number];
-				}
-				if (parts[0] === "Redirect") {
-					return {
-						type: "redirect",
-						code: parts[1],
-						source: parts[2],
-						target: parts[3],
-					} as RewriteMap[string][number];
-				}
-				return null;
-			})
-			.filter((rule): rule is RewriteMap[string][number] => rule !== null);
-		acc[dir] = rules;
-		return acc;
-	}, {} as RewriteMap);
+		const content = htaccessFiles[key] as string;
 
-	return { pages, authMap, rewriteMap };
+		try {
+			acc[dir] = parseHtaccess(content);
+		} catch (error) {
+			console.error(`Error parsing .htaccess in ${dir}:`, (error as Error).message);
+			acc[dir] = {
+				rewriteRules: [],
+				redirects: [],
+				errorDocuments: [],
+				headers: [],
+			};
+		}
+
+		return acc;
+	}, {} as HtaccessConfig);
+
+	return { pages, authMap, htaccessConfig };
 };
 
 const createApp = (project: ProjectName) => {
-	const { pages, authMap, rewriteMap } = loadProject(project);
-	return createCgiWithPages(pages, {}, authMap, rewriteMap);
+	const { pages, authMap, htaccessConfig } = loadProject(project);
+	return createCgiWithPages(pages, {}, authMap, htaccessConfig);
 };
 
 describe("createCgi", () => {

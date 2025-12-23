@@ -1,4 +1,6 @@
-import { createCgiWithPages, type MatchboxOptions, type Page, type RewriteMap } from "./cgi.js";
+import { createCgiWithPages, type MatchboxOptions, type Page } from "./cgi.js";
+import { parseHtaccess } from "./htaccess/parser.js";
+import type { HtaccessConfig } from "./htaccess/types.js";
 
 declare const __MATCHBOX_CONFIG__: Record<string, any> | undefined;
 
@@ -50,42 +52,30 @@ const loadPagesFromPublic = () => {
 		{} as Record<string, string>,
 	);
 
-	const rewriteMap = Object.keys(htaccessFiles).reduce((acc, key) => {
+	const htaccessConfig = Object.keys(htaccessFiles).reduce((acc, key) => {
 		const dir = key.replace(basePathRegex, "").replace(/\.htaccess$/, "") || "/";
-		const lines = (htaccessFiles[key] as string).split("\n");
-		const rules = lines
-			.map((line) => {
-				const l = line.trim();
-				if (!l || l.startsWith("#")) return null;
-				const parts = l.split(/\s+/);
-				if (parts[0] === "RewriteRule") {
-					return {
-						type: "rewrite",
-						pattern: parts[1],
-						target: parts[2],
-						flags: parts[3] || "",
-					};
-				}
-				if (parts[0] === "Redirect") {
-					return {
-						type: "redirect",
-						code: parts[1],
-						source: parts[2],
-						target: parts[3],
-					};
-				}
-				return null;
-			})
-			.filter(Boolean) as RewriteMap[string];
-		acc[dir] = rules;
-		return acc;
-	}, {} as RewriteMap);
+		const content = htaccessFiles[key] as string;
 
-	return { pages, authMap, rewriteMap };
+		try {
+			acc[dir] = parseHtaccess(content);
+		} catch (error) {
+			console.error(`Error parsing .htaccess in ${dir}:`, (error as Error).message);
+			acc[dir] = {
+				rewriteRules: [],
+				redirects: [],
+				errorDocuments: [],
+				headers: [],
+			};
+		}
+
+		return acc;
+	}, {} as HtaccessConfig);
+
+	return { pages, authMap, htaccessConfig };
 };
 
 export const createCgi = (options?: MatchboxOptions) => {
 	const resolvedConfig = typeof __MATCHBOX_CONFIG__ === "undefined" ? {} : __MATCHBOX_CONFIG__;
-	const { pages, authMap, rewriteMap } = loadPagesFromPublic();
-	return createCgiWithPages(pages, resolvedConfig, authMap, rewriteMap, options);
+	const { pages, authMap, htaccessConfig } = loadPagesFromPublic();
+	return createCgiWithPages(pages, resolvedConfig, authMap, htaccessConfig, options);
 };
