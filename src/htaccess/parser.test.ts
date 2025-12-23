@@ -312,7 +312,9 @@ describe("Htaccess Parser", () => {
 		});
 
 		test("should handle invalid AuthDigestProvider without provider", () => {
-			expect(() => parseHtaccess("AuthDigestProvider")).toThrow("AuthDigestProvider requires a provider name");
+			expect(() => parseHtaccess("AuthDigestProvider")).toThrow(
+				"AuthDigestProvider requires a provider name",
+			);
 		});
 	});
 
@@ -339,23 +341,33 @@ describe("Htaccess Parser", () => {
 		});
 
 		test("should handle invalid Require all without granted/denied", () => {
-			expect(() => parseHtaccess("Require all")).toThrow("Require all must specify granted or denied");
+			expect(() => parseHtaccess("Require all")).toThrow(
+				"Require all must specify granted or denied",
+			);
 		});
 
 		test("should handle invalid Require user without username", () => {
-			expect(() => parseHtaccess("Require user")).toThrow("Require user must specify at least one username");
+			expect(() => parseHtaccess("Require user")).toThrow(
+				"Require user must specify at least one username",
+			);
 		});
 
 		test("should handle invalid Require group without group name", () => {
-			expect(() => parseHtaccess("Require group")).toThrow("Require group must specify at least one group name");
+			expect(() => parseHtaccess("Require group")).toThrow(
+				"Require group must specify at least one group name",
+			);
 		});
 
 		test("should handle invalid Require ip without IP", () => {
-			expect(() => parseHtaccess("Require ip")).toThrow("Require ip must specify at least one IP or CIDR");
+			expect(() => parseHtaccess("Require ip")).toThrow(
+				"Require ip must specify at least one IP or CIDR",
+			);
 		});
 
 		test("should handle invalid Require host without hostname", () => {
-			expect(() => parseHtaccess("Require host")).toThrow("Require host must specify at least one hostname");
+			expect(() => parseHtaccess("Require host")).toThrow(
+				"Require host must specify at least one hostname",
+			);
 		});
 
 		test("should handle unknown Require type", () => {
@@ -388,30 +400,31 @@ describe("Htaccess Parser", () => {
 	});
 });
 
-	describe("Multiple directives combinations", () => {
-		test("should parse Header with complex quoted values", () => {
-			const config = parseHtaccess('Header set Content-Security-Policy "default-src \'self\'; script-src \'unsafe-inline\'"');
-			expect(config.headers[0].name).toBe("Content-Security-Policy");
-			expect(config.headers[0].value).toBe("default-src 'self'; script-src 'unsafe-inline'");
-		});
-
-		test("should parse Redirect with code", () => {
-			const config = parseHtaccess("Redirect 301 /old /new");
-			expect(config.redirects[0].code).toBe(301);
-			expect(config.redirects[0].source).toBe("/old");
-			expect(config.redirects[0].target).toBe("/new");
-		});
-
-
-		test("should parse RedirectPermanent", () => {
-			const config = parseHtaccess("RedirectPermanent /old /new");
-			expect(config.redirects[0].code).toBe(301);
-			expect(config.redirects[0].type).toBe("redirect");
-		});
-
-		test("should parse RedirectTemp", () => {
-			const config = parseHtaccess("RedirectTemp /old /new");
-			expect(config.redirects[0].code).toBe(302);
-			expect(config.redirects[0].type).toBe("redirect");
-		});
+describe("Multiple directives combinations", () => {
+	test("should parse Header with complex quoted values", () => {
+		const config = parseHtaccess(
+			"Header set Content-Security-Policy \"default-src 'self'; script-src 'unsafe-inline'\"",
+		);
+		expect(config.headers[0].name).toBe("Content-Security-Policy");
+		expect(config.headers[0].value).toBe("default-src 'self'; script-src 'unsafe-inline'");
 	});
+
+	test("should parse Redirect with code", () => {
+		const config = parseHtaccess("Redirect 301 /old /new");
+		expect(config.redirects[0].code).toBe(301);
+		expect(config.redirects[0].source).toBe("/old");
+		expect(config.redirects[0].target).toBe("/new");
+	});
+
+	test("should parse RedirectPermanent", () => {
+		const config = parseHtaccess("RedirectPermanent /old /new");
+		expect(config.redirects[0].code).toBe(301);
+		expect(config.redirects[0].type).toBe("redirect");
+	});
+
+	test("should parse RedirectTemp", () => {
+		const config = parseHtaccess("RedirectTemp /old /new");
+		expect(config.redirects[0].code).toBe(302);
+		expect(config.redirects[0].type).toBe("redirect");
+	});
+});

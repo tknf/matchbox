@@ -199,7 +199,9 @@ describe("Header append action", () => {
 
 	test("should append when no existing header", async () => {
 		const app = new Hono();
-		const middleware = createHeaderMiddleware([{ action: "append", name: "X-New", value: "value" }]);
+		const middleware = createHeaderMiddleware([
+			{ action: "append", name: "X-New", value: "value" },
+		]);
 
 		app.use("*", middleware);
 		app.get("*", (c) => c.text("OK"));

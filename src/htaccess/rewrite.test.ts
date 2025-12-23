@@ -317,35 +317,35 @@ describe("createRewriteMiddleware", () => {
 	});
 });
 
-	describe("OR conditions", () => {
-		test("evaluates OR conditions correctly", async () => {
-			const app = new Hono();
-			const rules: RewriteRuleConfig[] = [
-				{
-					type: "rewrite",
-					pattern: "^/(.*)$",
-					target: "/special/$1",
-					flags: { redirect: 302 },
-					conditions: [
-						{
-							testString: "%{HTTP_USER_AGENT}",
-							pattern: "Bot1",
-							flags: { or: true },
-						},
-						{
-							testString: "%{HTTP_USER_AGENT}",
-							pattern: "Bot2",
-							flags: {},
-						},
-					],
-				},
-			];
-			app.use("*", createRewriteMiddleware(rules, ""));
+describe("OR conditions", () => {
+	test("evaluates OR conditions correctly", async () => {
+		const app = new Hono();
+		const rules: RewriteRuleConfig[] = [
+			{
+				type: "rewrite",
+				pattern: "^/(.*)$",
+				target: "/special/$1",
+				flags: { redirect: 302 },
+				conditions: [
+					{
+						testString: "%{HTTP_USER_AGENT}",
+						pattern: "Bot1",
+						flags: { or: true },
+					},
+					{
+						testString: "%{HTTP_USER_AGENT}",
+						pattern: "Bot2",
+						flags: {},
+					},
+				],
+			},
+		];
+		app.use("*", createRewriteMiddleware(rules, ""));
 
-			const res = await app.request("/page", {
-				headers: { "User-Agent": "Bot1" },
-				redirect: "manual",
-			});
-			expect(res.status).toBe(302);
+		const res = await app.request("/page", {
+			headers: { "User-Agent": "Bot1" },
+			redirect: "manual",
 		});
+		expect(res.status).toBe(302);
 	});
+});
