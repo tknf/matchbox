@@ -5,6 +5,9 @@ import {
 	buildVariableContext,
 	testCondition,
 	applyRewriteFlags,
+	assertValidCidrNotation,
+	isSameNetwork,
+	resolveClientIp,
 } from "./utils.js";
 import type { VariableContext, RewriteCondition, RewriteFlags } from "./types.js";
 
@@ -132,7 +135,7 @@ describe("htaccess utils", () => {
 			expect(capturedContext?.SERVER_PORT).toBe("80");
 		});
 
-		test("extracts REMOTE_ADDR from X-Forwarded-For header", async () => {
+		test("ignores X-Forwarded-For by default (trustProxy: false)", async () => {
 			const app = new Hono();
 			let capturedContext: VariableContext | undefined;
 
@@ -147,7 +150,101 @@ describe("htaccess utils", () => {
 				},
 			});
 
+			expect(capturedContext?.REMOTE_ADDR).toBe("127.0.0.1");
+		});
+
+		test("extracts REMOTE_ADDR from X-Forwarded-For header when trustProxy is enabled", async () => {
+			const app = new Hono();
+			let capturedContext: VariableContext | undefined;
+
+			app.get("/test", (c) => {
+				capturedContext = buildVariableContext(c, { trustProxy: true });
+				return c.text("OK");
+			});
+
+			await app.request("/test", {
+				headers: {
+					"X-Forwarded-For": "203.0.113.1, 192.168.1.1",
+				},
+			});
+
 			expect(capturedContext?.REMOTE_ADDR).toBe("203.0.113.1");
+		});
+	});
+
+	describe("resolveClientIp (SEC-003)", () => {
+		test("ignores X-Forwarded-For and X-Real-IP by default", async () => {
+			const app = new Hono();
+			let clientIp: string | undefined;
+
+			app.get("/test", (c) => {
+				clientIp = resolveClientIp(c);
+				return c.text("OK");
+			});
+
+			await app.request("/test", {
+				headers: { "X-Forwarded-For": "203.0.113.1", "X-Real-IP": "198.51.100.1" },
+			});
+
+			expect(clientIp).toBe("127.0.0.1");
+		});
+
+		test("falls back to c.env.REMOTE_ADDR by default when present", async () => {
+			const app = new Hono<{ Bindings: { REMOTE_ADDR: string } }>();
+			let clientIp: string | undefined;
+
+			app.get("/test", (c) => {
+				clientIp = resolveClientIp(c);
+				return c.text("OK");
+			});
+
+			await app.request("/test", undefined, { REMOTE_ADDR: "10.1.2.3" });
+
+			expect(clientIp).toBe("10.1.2.3");
+		});
+
+		test("honors X-Forwarded-For (first entry) when trustProxy is enabled", async () => {
+			const app = new Hono();
+			let clientIp: string | undefined;
+
+			app.get("/test", (c) => {
+				clientIp = resolveClientIp(c, { trustProxy: true });
+				return c.text("OK");
+			});
+
+			await app.request("/test", {
+				headers: { "X-Forwarded-For": "203.0.113.1, 192.168.1.1" },
+			});
+
+			expect(clientIp).toBe("203.0.113.1");
+		});
+
+		test("falls back to X-Real-IP when trustProxy is enabled and X-Forwarded-For is absent", async () => {
+			const app = new Hono();
+			let clientIp: string | undefined;
+
+			app.get("/test", (c) => {
+				clientIp = resolveClientIp(c, { trustProxy: true });
+				return c.text("OK");
+			});
+
+			await app.request("/test", { headers: { "X-Real-IP": "198.51.100.1" } });
+
+			expect(clientIp).toBe("198.51.100.1");
+		});
+
+		test("falls back to the default address when nothing is resolvable", async () => {
+			const app = new Hono();
+			let clientIp: string | undefined;
+
+			app.get("/test", (c) => {
+				clientIp = resolveClientIp(c, { trustProxy: true });
+				return c.text("OK");
+			});
+
+			await app.request("/test");
+
+			expect(clientIp).toBe("127.0.0.1");
 		});
 	});
 
@@ -315,6 +412,143 @@ describe("htaccess utils", () => {
 				type: "rewrite",
 				path: "/target",
 			});
+		});
+	});
+
+	describe("testCondition with precompiled pattern", () => {
+		const context: VariableContext = {
+			HTTP_HOST: "www.example.com",
+			HTTP_USER_AGENT: "",
+			REQUEST_URI: "",
+			QUERY_STRING: "",
+			HTTPS: "off",
+			REMOTE_ADDR: "",
+			REQUEST_METHOD: "GET",
+			HTTP_REFERER: "",
+			HTTP_ACCEPT: "",
+			HTTP_COOKIE: "",
+			SERVER_NAME: "",
+			SERVER_PORT: "",
+			DOCUMENT_ROOT: "",
+			REQUEST_FILENAME: "",
+		};
+
+		test("uses condition.compiled when present instead of recompiling pattern", () => {
+			const condition: RewriteCondition = {
+				testString: "%{HTTP_HOST}",
+				// Deliberately mismatched pattern - compiled must win when present.
+				pattern: "will-not-match",
+				flags: {},
+				compiled: /example\.com/,
+			};
+
+			expect(testCondition(condition, context)).toBe(true);
+		});
+
+		test("falls back to compiling pattern when compiled is absent", () => {
+			const condition: RewriteCondition = {
+				testString: "%{HTTP_HOST}",
+				pattern: "example\\.com",
+				flags: {},
+			};
+
+			expect(testCondition(condition, context)).toBe(true);
+		});
+	});
+
+	describe("assertValidCidrNotation", () => {
+		test("does not throw for a plain IP without a prefix", () => {
+			expect(() => assertValidCidrNotation("192.168.1.1")).not.toThrow();
+		});
+
+		test("does not throw for a valid IPv4 CIDR", () => {
+			expect(() => assertValidCidrNotation("192.168.1.0/24")).not.toThrow();
+		});
+
+		test("does not throw for boundary IPv4 prefixes /0 and /32", () => {
+			expect(() => assertValidCidrNotation("192.168.1.0/0")).not.toThrow();
+			expect(() => assertValidCidrNotation("192.168.1.0/32")).not.toThrow();
+		});
+
+		test("does not throw for a valid IPv6 CIDR", () => {
+			expect(() => assertValidCidrNotation("2001:db8::/32")).not.toThrow();
+		});
+
+		test("does not throw for boundary IPv6 prefixes /0 and /128", () => {
+			expect(() => assertValidCidrNotation("2001:db8::/0")).not.toThrow();
+			expect(() => assertValidCidrNotation("2001:db8::/128")).not.toThrow();
+		});
+
+		test("throws for an empty prefix length (trailing slash)", () => {
+			expect(() => assertValidCidrNotation("192.168.1.0/")).toThrow(/Invalid CIDR prefix length/);
+		});
+
+		test("throws for a non-numeric prefix length", () => {
+			expect(() => assertValidCidrNotation("192.168.1.0/abc")).toThrow(
+				/Invalid CIDR prefix length/,
+			);
+		});
+
+		test("throws for an out-of-range IPv4 prefix length", () => {
+			expect(() => assertValidCidrNotation("192.168.1.0/33")).toThrow(/Invalid CIDR prefix length/);
+		});
+
+		test("throws for an out-of-range IPv6 prefix length", () => {
+			expect(() => assertValidCidrNotation("2001:db8::/129")).toThrow(/Invalid CIDR prefix length/);
+		});
+	});
+
+	describe("isSameNetwork", () => {
+		test("matches an IPv4 address within its /24 network", () => {
+			expect(isSameNetwork("192.168.1.50", "192.168.1.0", 24)).toBe(true);
+		});
+
+		test("rejects an IPv4 address outside its /24 network", () => {
+			expect(isSameNetwork("192.168.2.50", "192.168.1.0", 24)).toBe(false);
+		});
+
+		test("matches boundary IPv4 prefixes /0 and /32", () => {
+			expect(isSameNetwork("8.8.8.8", "0.0.0.0", 0)).toBe(true);
+			expect(isSameNetwork("192.168.1.1", "192.168.1.1", 32)).toBe(true);
+			expect(isSameNetwork("192.168.1.2", "192.168.1.1", 32)).toBe(false);
+		});
+
+		test("matches an IPv6 address within its /32 network", () => {
+			expect(isSameNetwork("2001:db8:0:0:0:0:0:1", "2001:db8::", 32)).toBe(true);
+		});
+
+		test("matches a compressed IPv6 address within its /32 network", () => {
+			expect(isSameNetwork("2001:db8::1", "2001:db8::", 32)).toBe(true);
+		});
+
+		test("rejects an IPv6 address outside its /32 network", () => {
+			expect(isSameNetwork("2001:db9::1", "2001:db8::", 32)).toBe(false);
+		});
+
+		test("matches boundary IPv6 prefixes /0 and /128", () => {
+			expect(isSameNetwork("::1", "::", 0)).toBe(true);
+			expect(isSameNetwork("2001:db8::1", "2001:db8::1", 128)).toBe(true);
+			expect(isSameNetwork("2001:db8::2", "2001:db8::1", 128)).toBe(false);
+		});
+
+		test("returns false when the client IP family does not match the network's family", () => {
+			expect(isSameNetwork("2001:db8::1", "192.168.1.0", 24)).toBe(false);
+			expect(isSameNetwork("192.168.1.1", "2001:db8::", 32)).toBe(false);
+		});
+
+		test("throws when maskBits is NaN (empty or non-numeric prefix)", () => {
+			expect(() => isSameNetwork("192.168.1.1", "192.168.1.0", Number.NaN)).toThrow(
+				/Invalid CIDR prefix length/,
+			);
+		});
+
+		test("throws when maskBits is out of range for the network's family", () => {
+			expect(() => isSameNetwork("192.168.1.1", "192.168.1.0", 33)).toThrow(
+				/Invalid CIDR prefix length/,
+			);
+			expect(() => isSameNetwork("2001:db8::1", "2001:db8::", 129)).toThrow(
+				/Invalid CIDR prefix length/,
+			);
 		});
 	});
 });

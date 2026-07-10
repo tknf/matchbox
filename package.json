@@ -45,24 +45,30 @@
 		"lint:fix": "oxlint --fix",
 		"format:check": "oxfmt --check",
 		"format:write": "oxfmt",
+		"typecheck": "tsc --noEmit -p tsconfig.json",
 		"watch": "tsup --watch",
 		"build": "tsup"
 	},
-	"dependencies": {
-		"glob": "^13.0.0"
-	},
 	"devDependencies": {
-		"@types/node": "^25.0.3",
-		"@vitest/coverage-v8": "^4.0.16",
-		"hono": "^4.11.1",
+		"@types/node": "^25.9.5",
+		"@vitest/coverage-v8": "^4.1.10",
+		"glob": "^13.0.6",
+		"hono": "^4.12.28",
 		"oxfmt": "^0.20.0",
 		"oxlint": "^1.35.0",
 		"tsup": "^8.5.1",
 		"typescript": "^5.9.3",
-		"vite": "^7.3.0",
-		"vitest": "^4.0.16"
+		"vite": "^7.3.6",
+		"vitest": "^4.1.10"
 	},
 	"peerDependencies": {
 		"hono": "*"
+	},
+	"devEngines": {
+		"packageManager": {
+			"name": "pnpm",
+			"version": "11.11.0",
+			"onFail": "download"
+		}
 	}
 }

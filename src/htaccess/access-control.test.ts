@@ -12,7 +12,7 @@ describe("Access Control Middleware", () => {
 				deny: [{ type: "all" }],
 			};
 
-			const middleware = createAccessControlMiddleware(config);
+			const middleware = createAccessControlMiddleware(config, { trustProxy: true });
 			const app = new Hono();
 			app.use("*", middleware);
 			app.get("*", (c) => c.text("OK"));
@@ -31,7 +31,7 @@ describe("Access Control Middleware", () => {
 				deny: [{ type: "all" }],
 			};
 
-			const middleware = createAccessControlMiddleware(config);
+			const middleware = createAccessControlMiddleware(config, { trustProxy: true });
 			const app = new Hono();
 			app.use("*", middleware);
 			app.get("*", (c) => c.text("OK"));
@@ -50,7 +50,7 @@ describe("Access Control Middleware", () => {
 				deny: [{ type: "all" }],
 			};
 
-			const middleware = createAccessControlMiddleware(config);
+			const middleware = createAccessControlMiddleware(config, { trustProxy: true });
 			const app = new Hono();
 			app.use("*", middleware);
 			app.get("*", (c) => c.text("OK"));
@@ -70,7 +70,7 @@ describe("Access Control Middleware", () => {
 				deny: [{ type: "all" }],
 			};
 
-			const middleware = createAccessControlMiddleware(config);
+			const middleware = createAccessControlMiddleware(config, { trustProxy: true });
 			const app = new Hono();
 			app.use("*", middleware);
 			app.get("*", (c) => c.text("OK"));
@@ -88,7 +88,7 @@ describe("Access Control Middleware", () => {
 				deny: [{ type: "all" }],
 			};
 
-			const middleware = createAccessControlMiddleware(config);
+			const middleware = createAccessControlMiddleware(config, { trustProxy: true });
 			const app = new Hono();
 			app.use("*", middleware);
 			app.get("*", (c) => c.text("OK"));
@@ -108,7 +108,7 @@ describe("Access Control Middleware", () => {
 				deny: [{ type: "ip", value: "10.0.0.1" }],
 			};
 
-			const middleware = createAccessControlMiddleware(config);
+			const middleware = createAccessControlMiddleware(config, { trustProxy: true });
 			const app = new Hono();
 			app.use("*", middleware);
 			app.get("*", (c) => c.text("OK"));
@@ -126,7 +126,7 @@ describe("Access Control Middleware", () => {
 				deny: [{ type: "all" }],
 			};
 
-			const middleware = createAccessControlMiddleware(config);
+			const middleware = createAccessControlMiddleware(config, { trustProxy: true });
 			const app = new Hono();
 			app.use("*", middleware);
 			app.get("*", (c) => c.text("OK"));
@@ -144,7 +144,7 @@ describe("Access Control Middleware", () => {
 				deny: [{ type: "ip", value: "192.168.1.100" }],
 			};
 
-			const middleware = createAccessControlMiddleware(config);
+			const middleware = createAccessControlMiddleware(config, { trustProxy: true });
 			const app = new Hono();
 			app.use("*", middleware);
 			app.get("*", (c) => c.text("OK"));
@@ -163,6 +163,104 @@ describe("Access Control Middleware", () => {
 		});
 	});
 
+	describe("IPv6 CIDR notation", () => {
+		test("should allow IPv6 address in CIDR range", async () => {
+			const config: AccessControlConfig = {
+				order: "deny,allow",
+				allow: [{ type: "ip", value: "2001:db8::/32" }],
+				deny: [{ type: "all" }],
+			};
+
+			const middleware = createAccessControlMiddleware(config, { trustProxy: true });
+			const app = new Hono();
+			app.use("*", middleware);
+			app.get("*", (c) => c.text("OK"));
+
+			const res = await app.request("/test", {
+				headers: { "x-forwarded-for": "2001:db8::1" },
+			});
+			expect(res.status).toBe(200);
+		});
+
+		test("should deny IPv6 address outside CIDR range", async () => {
+			const config: AccessControlConfig = {
+				order: "deny,allow",
+				allow: [{ type: "ip", value: "2001:db8::/32" }],
+				deny: [{ type: "all" }],
+			};
+
+			const middleware = createAccessControlMiddleware(config, { trustProxy: true });
+			const app = new Hono();
+			app.use("*", middleware);
+			app.get("*", (c) => c.text("OK"));
+
+			const res = await app.request("/test", {
+				headers: { "x-forwarded-for": "2001:db9::1" },
+			});
+			expect(res.status).toBe(403);
+		});
+
+		test("should deny an IPv4 client against an IPv6 CIDR rule (family mismatch)", async () => {
+			const config: AccessControlConfig = {
+				order: "deny,allow",
+				allow: [{ type: "ip", value: "2001:db8::/32" }],
+				deny: [{ type: "all" }],
+			};
+
+			const middleware = createAccessControlMiddleware(config, { trustProxy: true });
+			const app = new Hono();
+			app.use("*", middleware);
+			app.get("*", (c) => c.text("OK"));
+
+			const res = await app.request("/test", {
+				headers: { "x-forwarded-for": "192.168.1.1" },
+			});
+			expect(res.status).toBe(403);
+		});
+
+		test("should deny an IPv6 client against an IPv4 CIDR rule (family mismatch)", async () => {
+			const config: AccessControlConfig = {
+				order: "deny,allow",
+				allow: [{ type: "ip", value: "192.168.1.0/24" }],
+				deny: [{ type: "all" }],
+			};
+
+			const middleware = createAccessControlMiddleware(config, { trustProxy: true });
+			const app = new Hono();
+			app.use("*", middleware);
+			app.get("*", (c) => c.text("OK"));
+
+			const res = await app.request("/test", {
+				headers: { "x-forwarded-for": "2001:db8::1" },
+			});
+			expect(res.status).toBe(403);
+		});
+	});
+
+	describe("Invalid CIDR configuration", () => {
+		test("should error out instead of silently matching when the rule's CIDR prefix is malformed", async () => {
+			// Bypasses the parser (which would reject this at parse time) to
+			// exercise the runtime guard in isSameNetwork/matchesIP directly.
+			// Hono turns the thrown error into a 500 response rather than
+			// silently treating the malformed rule as "always match".
+			const config: AccessControlConfig = {
+				order: "deny,allow",
+				allow: [{ type: "ip", value: "192.168.1.0/" }],
+				deny: [{ type: "all" }],
+			};
+
+			const middleware = createAccessControlMiddleware(config, { trustProxy: true });
+			const app = new Hono();
+			app.use("*", middleware);
+			app.get("*", (c) => c.text("OK"));
+
+			const res = await app.request("/test", {
+				headers: { "x-forwarded-for": "192.168.1.50" },
+			});
+			expect(res.status).toBe(500);
+		});
+	});
+
 	describe("Hostname matching", () => {
 		test("should allow exact hostname match", async () => {
 			const config: AccessControlConfig = {
@@ -171,7 +269,7 @@ describe("Access Control Middleware", () => {
 				deny: [{ type: "all" }],
 			};
 
-			const middleware = createAccessControlMiddleware(config);
+			const middleware = createAccessControlMiddleware(config, { trustProxy: true });
 			const app = new Hono();
 			app.use("*", middleware);
 			app.get("*", (c) => c.text("OK"));
@@ -189,7 +287,7 @@ describe("Access Control Middleware", () => {
 				deny: [{ type: "all" }],
 			};
 
-			const middleware = createAccessControlMiddleware(config);
+			const middleware = createAccessControlMiddleware(config, { trustProxy: true });
 			const app = new Hono();
 			app.use("*", middleware);
 			app.get("*", (c) => c.text("OK"));
@@ -207,7 +305,7 @@ describe("Access Control Middleware", () => {
 				deny: [{ type: "all" }],
 			};
 
-			const middleware = createAccessControlMiddleware(config);
+			const middleware = createAccessControlMiddleware(config, { trustProxy: true });
 			const app = new Hono();
 			app.use("*", middleware);
 			app.get("*", (c) => c.text("OK"));
@@ -226,7 +324,7 @@ describe("Access Control Middleware", () => {
 				deny: [{ type: "all" }],
 			};
 
-			const middleware = createAccessControlMiddleware(config);
+			const middleware = createAccessControlMiddleware(config, { trustProxy: true });
 			const app = new Hono();
 			app.use("*", middleware);
 			app.get("*", (c) => c.text("OK"));
@@ -244,7 +342,7 @@ describe("Access Control Middleware", () => {
 				deny: [{ type: "ip", value: ["192.168.1.100"] }],
 			};
 
-			const middleware = createAccessControlMiddleware(config);
+			const middleware = createAccessControlMiddleware(config, { trustProxy: true });
 			const app = new Hono();
 			app.use("*", middleware);
 			app.get("*", (c) => c.text("OK"));
@@ -262,7 +360,7 @@ describe("Access Control Middleware", () => {
 				deny: [{ type: "ip", value: ["192.168.1.100"] }],
 			};
 
-			const middleware = createAccessControlMiddleware(config);
+			const middleware = createAccessControlMiddleware(config, { trustProxy: true });
 			const app = new Hono();
 			app.use("*", middleware);
 			app.get("*", (c) => c.text("OK"));
@@ -280,7 +378,7 @@ describe("Access Control Middleware", () => {
 				deny: [],
 			};
 
-			const middleware = createAccessControlMiddleware(config);
+			const middleware = createAccessControlMiddleware(config, { trustProxy: true });
 			const app = new Hono();
 			app.use("*", middleware);
 			app.get("*", (c) => c.text("OK"));
@@ -301,7 +399,7 @@ describe("Multiple IPs in single rule", () => {
 			deny: [{ type: "all" }],
 		};
 
-		const middleware = createAccessControlMiddleware(config);
+		const middleware = createAccessControlMiddleware(config, { trustProxy: true });
 		const app = new Hono();
 		app.use("*", middleware);
 		app.get("*", (c) => c.text("OK"));
@@ -331,7 +429,7 @@ describe("Edge cases", () => {
 			deny: [{ type: "all" }],
 		};
 
-		const middleware = createAccessControlMiddleware(config);
+		const middleware = createAccessControlMiddleware(config, { trustProxy: true });
 		const app = new Hono();
 		app.use("*", middleware);
 		app.get("*", (c) => c.text("OK"));
@@ -349,7 +447,7 @@ describe("Edge cases", () => {
 			deny: [{ type: "ip", value: ["10.0.0.0/24"] }],
 		};
 
-		const middleware = createAccessControlMiddleware(config);
+		const middleware = createAccessControlMiddleware(config, { trustProxy: true });
 		const app = new Hono();
 		app.use("*", middleware);
 		app.get("*", (c) => c.text("OK"));
@@ -367,7 +465,7 @@ describe("Edge cases", () => {
 			deny: [{ type: "ip", value: ["10.0.0.0/24"] }],
 		};
 
-		const middleware = createAccessControlMiddleware(config);
+		const middleware = createAccessControlMiddleware(config, { trustProxy: true });
 		const app = new Hono();
 		app.use("*", middleware);
 		app.get("*", (c) => c.text("OK"));
@@ -385,7 +483,7 @@ describe("Edge cases", () => {
 			deny: [],
 		};
 
-		const middleware = createAccessControlMiddleware(config);
+		const middleware = createAccessControlMiddleware(config, { trustProxy: true });
 		const app = new Hono();
 		app.use("*", middleware);
 		app.get("*", (c) => c.text("OK"));
@@ -401,7 +499,7 @@ describe("Edge cases", () => {
 			deny: [],
 		};
 
-		const middleware = createAccessControlMiddleware(config);
+		const middleware = createAccessControlMiddleware(config, { trustProxy: true });
 		const app = new Hono();
 		app.use("*", middleware);
 		app.get("*", (c) => c.text("OK"));
@@ -417,7 +515,7 @@ describe("Edge cases", () => {
 			deny: [],
 		};
 
-		const middleware = createAccessControlMiddleware(config);
+		const middleware = createAccessControlMiddleware(config, { trustProxy: true });
 		const app = new Hono<{ Bindings: { TEST_VAR: string } }>();
 		app.use("*", middleware);
 		app.get("*", (c) => c.text("OK"));
@@ -433,7 +531,7 @@ describe("Edge cases", () => {
 			deny: [],
 		};
 
-		const middleware = createAccessControlMiddleware(config);
+		const middleware = createAccessControlMiddleware(config, { trustProxy: true });
 		const app = new Hono();
 		app.use("*", middleware);
 		app.get("*", (c) => c.text("OK"));
@@ -449,7 +547,7 @@ describe("Edge cases", () => {
 			deny: [],
 		};
 
-		const middleware = createAccessControlMiddleware(config);
+		const middleware = createAccessControlMiddleware(config, { trustProxy: true });
 		const app = new Hono();
 		app.use("*", middleware);
 		app.get("*", (c) => c.text("OK"));
@@ -467,7 +565,7 @@ describe("Edge cases", () => {
 			deny: [],
 		};
 
-		const middleware = createAccessControlMiddleware(config);
+		const middleware = createAccessControlMiddleware(config, { trustProxy: true });
 		const app = new Hono();
 		app.use("*", middleware);
 		app.get("*", (c) => c.text("OK"));
@@ -485,7 +583,7 @@ describe("Edge cases", () => {
 			deny: [],
 		};
 
-		const middleware = createAccessControlMiddleware(config);
+		const middleware = createAccessControlMiddleware(config, { trustProxy: true });
 		const app = new Hono();
 		app.use("*", middleware);
 		app.get("*", (c) => c.text("OK"));
@@ -503,7 +601,7 @@ describe("Edge cases", () => {
 			deny: [],
 		};
 
-		const middleware = createAccessControlMiddleware(config);
+		const middleware = createAccessControlMiddleware(config, { trustProxy: true });
 		const app = new Hono<{ Bindings: { REMOTE_ADDR: string } }>();
 		app.use("*", middleware);
 		app.get("*", (c) => c.text("OK"));
@@ -519,7 +617,7 @@ describe("Edge cases", () => {
 			deny: [],
 		};
 
-		const middleware = createAccessControlMiddleware(config);
+		const middleware = createAccessControlMiddleware(config, { trustProxy: true });
 		const app = new Hono();
 		app.use("*", middleware);
 		app.get("*", (c) => c.text("OK"));
@@ -535,7 +633,7 @@ describe("Edge cases", () => {
 			deny: [],
 		};
 
-		const middleware = createAccessControlMiddleware(config);
+		const middleware = createAccessControlMiddleware(config, { trustProxy: true });
 		const app = new Hono<{ Bindings: { TEST_VAR: string } }>();
 		app.use("*", middleware);
 		app.get("*", (c) => c.text("OK"));
@@ -551,7 +649,7 @@ describe("Edge cases", () => {
 			deny: [],
 		};
 
-		const middleware = createAccessControlMiddleware(config);
+		const middleware = createAccessControlMiddleware(config, { trustProxy: true });
 		const app = new Hono();
 		app.use("*", middleware);
 		app.get("*", (c) => c.text("OK"));
@@ -567,12 +665,67 @@ describe("Edge cases", () => {
 			deny: [],
 		};
 
-		const middleware = createAccessControlMiddleware(config);
+		const middleware = createAccessControlMiddleware(config, { trustProxy: true });
 		const app = new Hono();
 		app.use("*", middleware);
 		app.get("*", (c) => c.text("OK"));
 
 		const res = await app.request("/test");
 		expect(res.status).toBe(403);
+	});
+});
+
+describe("SEC-003: trustProxy default", () => {
+	test("ignores X-Forwarded-For by default, so a spoofed header cannot bypass an IP allow rule", async () => {
+		const config: AccessControlConfig = {
+			order: "deny,allow",
+			allow: [{ type: "ip", value: "192.168.1.100" }],
+			deny: [{ type: "all" }],
+		};
+
+		// No ipOptions passed - trustProxy defaults to false.
+		const middleware = createAccessControlMiddleware(config);
+		const app = new Hono();
+		app.use("*", middleware);
+		app.get("*", (c) => c.text("OK"));
+
+		const res = await app.request("/test", {
+			headers: { "x-forwarded-for": "192.168.1.100" },
+		});
+		expect(res.status).toBe(403);
+	});
+
+	test("ignores X-Real-IP by default", async () => {
+		const config: AccessControlConfig = {
+			order: "deny,allow",
+			allow: [{ type: "ip", value: "192.168.1.100" }],
+			deny: [{ type: "all" }],
+		};
+
+		const middleware = createAccessControlMiddleware(config);
+		const app = new Hono();
+		app.use("*", middleware);
+		app.get("*", (c) => c.text("OK"));
+
+		const res = await app.request("/test", {
+			headers: { "x-real-ip": "192.168.1.100" },
+		});
+		expect(res.status).toBe(403);
+	});
+
+	test("still resolves the client IP from c.env.REMOTE_ADDR when trustProxy is false", async () => {
+		const config: AccessControlConfig = {
+			order: "deny,allow",
+			allow: [{ type: "ip", value: "192.168.1.100" }],
+			deny: [{ type: "all" }],
+		};
+
+		const middleware = createAccessControlMiddleware(config, { trustProxy: false });
+		const app = new Hono<{ Bindings: { REMOTE_ADDR: string } }>();
+		app.use("*", middleware);
+		app.get("*", (c) => c.text("OK"));
+
+		const res = await app.request("/test", undefined, { REMOTE_ADDR: "192.168.1.100" });
+		expect(res.status).toBe(200);
 	});
 });

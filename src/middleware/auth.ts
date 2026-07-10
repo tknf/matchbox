@@ -2,35 +2,57 @@ import type { Context, Hono } from "hono";
 import { basicAuth } from "hono/basic-auth";
 
 /**
- * Parse .htpasswd content and create Basic Auth middleware
+ * Constant-time string comparison to reduce the risk of a timing attack
+ * revealing password contents through response latency. Length is compared
+ * first (mismatched lengths return immediately without walking the bytes),
+ * then every byte is compared regardless of where the first mismatch occurs.
+ */
+function timingSafeEqual(a: string, b: string): boolean {
+	if (a.length !== b.length) return false;
+
+	let mismatch = 0;
+	for (let i = 0; i < a.length; i++) {
+		mismatch |= a.charCodeAt(i) ^ b.charCodeAt(i);
+	}
+	return mismatch === 0;
+}
+
+/**
+ * Parse .htpasswd content and create Basic Auth middleware.
+ *
+ * The credential map and the `hono/basic-auth` handler are both built once,
+ * at middleware-creation time, rather than on every request.
  */
 function createBasicAuthMiddleware(
 	htpasswdContent: string,
 	realm = "Restricted Area",
 ): (c: Context, next: () => Promise<void>) => Promise<Response | void> {
-	const credentials = htpasswdContent
-		.split("\n")
-		.map((line) => line.trim())
-		.filter((line) => line && !line.startsWith("#"))
-		.map((line) => {
-			const [username, password] = line.split(":");
-			return { username, password };
-		});
+	const credentials = new Map<string, string>();
+	for (const rawLine of htpasswdContent.split("\n")) {
+		const line = rawLine.trim();
+		if (!line || line.startsWith("#")) continue;
 
-	if (credentials.length === 0) {
+		const [username, password] = line.split(":");
+		if (username === undefined || password === undefined) continue;
+		credentials.set(username, password);
+	}
+
+	if (credentials.size === 0) {
 		// No valid credentials, skip auth
 		return async (_c, next) => {
 			await next();
 		};
 	}
 
-	return async (c, next) => {
-		const handler = basicAuth({
-			verifyUser: (u, p) => credentials.some((cred) => cred.username === u && cred.password === p),
-			realm,
-		});
-		return handler(c, next);
-	};
+	const handler = basicAuth({
+		verifyUser: (u, p) => {
+			const storedPassword = credentials.get(u);
+			return storedPassword !== undefined && timingSafeEqual(storedPassword, p);
+		},
+		realm,
+	});
+
+	return async (c, next) => handler(c, next);
 }
 
 /**

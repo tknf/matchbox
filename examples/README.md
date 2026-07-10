@@ -17,18 +17,7 @@ A fundamental example showcasing core Matchbox features:
 
 **Best for**: Getting started with Matchbox, learning basic concepts
 
-### 2. Middleware Example ([examples/middleware](./middleware))
-
-Demonstrates middleware patterns and request/response interceptors:
-
-- Request logging middleware
-- Custom header middleware
-- Route-specific authentication
-- Protected routes with Bearer token auth
-
-**Best for**: Understanding middleware patterns, implementing authentication
-
-### 3. Session Management Example ([examples/session](./session))
+### 2. Session Management Example ([examples/session](./session))
 
 Shows how to manage user sessions and state:
 
@@ -39,7 +28,7 @@ Shows how to manage user sessions and state:
 
 **Best for**: Building stateful applications, user authentication systems
 
-### 4. File Upload Example ([examples/file-upload](./file-upload))
+### 3. File Upload Example ([examples/file-upload](./file-upload))
 
 Demonstrates file upload handling:
 
@@ -50,7 +39,7 @@ Demonstrates file upload handling:
 
 **Best for**: Building applications that handle file uploads
 
-### 5. HTAccess + Basic Auth Example ([examples/htaccess-auth](./htaccess-auth))
+### 4. HTAccess + Basic Auth Example ([examples/htaccess-auth](./htaccess-auth))
 
 Shows how `.htaccess` rewrite/redirect rules and `.htpasswd` authentication work:
 
@@ -67,7 +56,7 @@ Each example is a standalone project. To run an example:
 1. Navigate to the example directory:
 
    ```bash
-   cd examples/basic  # or middleware, session, file-upload
+   cd examples/basic  # or session, file-upload, htaccess-auth
    ```
 
 2. Install dependencies:
@@ -103,10 +92,9 @@ example-name/
 We recommend exploring the examples in this order:
 
 1. **Basic** - Learn fundamental concepts and routing
-2. **Middleware** - Understand request/response processing
-3. **Session** - Build stateful applications
-4. **File Upload** - Handle file uploads
-5. **HTAccess + Basic Auth** - Use `.htaccess` and `.htpasswd`
+2. **Session** - Build stateful applications
+3. **File Upload** - Handle file uploads
+4. **HTAccess + Basic Auth** - Use `.htaccess` and `.htpasswd`
 
 ## About Matchbox
 

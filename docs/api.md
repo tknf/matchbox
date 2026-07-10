@@ -106,6 +106,29 @@ interface MatchboxOptions {
   enforceTrailingSlash?: boolean;
   middleware?: Array<(c: Context, next: () => Promise<void>) => Promise<Response | undefined>>;
   logger?: (message: string, level?: "info" | "warn" | "error") => void;
+
+  // Trust X-Forwarded-For/X-Real-IP when resolving the client IP for
+  // $_SERVER.REMOTE_ADDR, %{REMOTE_ADDR}, and Allow/Deny IP matching.
+  // Default: false (headers are ignored; only enable behind a reverse
+  // proxy you control - see docs/security.md#sec-003).
+  trustProxy?: boolean;
+
+  // HMAC-SHA256 secret used to sign the $_SESSION cookie so clients can't
+  // tamper with it. Default: unsigned (see docs/security.md#sec-004).
+  sessionSecret?: string;
+
+  // Maximum accepted request body size in bytes. Requests over this limit
+  // get a 413 before the body is parsed. Default: 10 MiB (10 * 1024 * 1024);
+  // pass 0 to disable the limit.
+  maxBodySize?: number;
+
+  // Maximum time (ms) a page component may take before Matchbox responds
+  // with 504 Gateway Timeout. Default: no timeout (opt-in).
+  handlerTimeoutMs?: number;
+
+  // Include the error message/stack trace in the runtime error page.
+  // Default: false (see docs/security.md#sec-006).
+  debug?: boolean;
 }
 ```
 
@@ -252,6 +275,12 @@ const {
   QUERY_STRING,      // Raw query string
 } = context.$_SERVER;
 ```
+
+**Note:** `$_SERVER` contains only request metadata - it does **not** include
+environment variables (read those from `$_ENV` instead). `REMOTE_ADDR` is
+resolved via `trustProxy` (see `MatchboxOptions`): by default, proxy headers
+are ignored and only a directly-known connection address (or `127.0.0.1`) is
+used; see [Security Guide](./security.md#sec-003-x-forwarded-for-trust-is-opt-in).
 
 #### `$_ENV`
 
@@ -412,7 +441,7 @@ Matchbox includes several built-in middleware that are automatically applied:
 - **Rewrite/Redirect** - Applies `RewriteRule` and `Redirect` directives
 - **Access Control** - Enforces `Order`/`Allow`/`Deny` directives
 - **Basic Auth** - Enforces `.htpasswd` authentication
-- **Error Documents** - Serves custom error pages from `ErrorDocument` directives
+- **Error Documents** - Redirects to the target of matching `ErrorDocument` directives when the target is an external URL; local-path targets are parsed but not served (see [`.htaccess` guide](./htaccess.md#error-handling))
 
 ## .htaccess Parsing
 
@@ -458,18 +487,21 @@ Matchbox automatically handles errors:
 ```typescript
 export default function (ctx: CgiContext) {
   throw new Error("Something went wrong");
-  // Returns 500 with error message in development
-  // Returns generic 500 in production
+  // debug: false (default) - renders a generic "Internal Server Error" (500)
+  // debug: true             - renders the error message and stack trace (500)
+  // Either way, the original error is passed to `logger` (if configured).
 }
 ```
 
 ### Custom Error Pages
 
-Use `ErrorDocument` directive in `.htaccess`:
+Use `ErrorDocument` directive in `.htaccess` to redirect to an external URL
+when a status code matches (local paths are parsed but not yet served — see
+[`.htaccess` guide](./htaccess.md#error-handling)):
 
 ```apache
-ErrorDocument 404 /errors/404.html
-ErrorDocument 500 /errors/500.html
+ErrorDocument 404 https://example.com/errors/404.html
+ErrorDocument 500 https://example.com/errors/500.html
 ```
 
 Or handle errors in your page:

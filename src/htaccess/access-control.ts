@@ -1,8 +1,10 @@
 import type { Context } from "hono";
 import type { AccessControlConfig, AccessRule } from "./types.js";
+import { type ClientIpOptions, isSameNetwork, resolveClientIp } from "./utils.js";
 
 /**
- * Check if an IP address matches a rule
+ * Check if an IP address matches a rule. Supports exact matches and CIDR
+ * notation (IPv4 and IPv6, via `isSameNetwork`).
  */
 function matchesIP(clientIP: string, ruleValue: string | string[]): boolean {
 	const ips = Array.isArray(ruleValue) ? ruleValue : [ruleValue];
@@ -11,37 +13,15 @@ function matchesIP(clientIP: string, ruleValue: string | string[]): boolean {
 		// Exact match
 		if (clientIP === ip) return true;
 
-		// CIDR notation check (simple implementation)
+		// CIDR notation check
 		if (ip.includes("/")) {
 			const [network, bits] = ip.split("/");
-			const mask = parseInt(bits, 10);
-			if (isSameNetwork(clientIP, network, mask)) return true;
+			const maskBits = /^\d+$/.test(bits) ? Number.parseInt(bits, 10) : Number.NaN;
+			if (isSameNetwork(clientIP, network, maskBits)) return true;
 		}
 	}
 
 	return false;
-}
-
-/**
- * Simple CIDR network comparison
- */
-function isSameNetwork(ip1: string, ip2: string, maskBits: number): boolean {
-	const ip1Parts = ip1.split(".").map(Number);
-	const ip2Parts = ip2.split(".").map(Number);
-
-	let bits = maskBits;
-	for (let i = 0; i < 4; i++) {
-		if (bits <= 0) break;
-
-		const mask = bits >= 8 ? 255 : 256 - Math.pow(2, 8 - bits);
-		if ((ip1Parts[i] & mask) !== (ip2Parts[i] & mask)) {
-			return false;
-		}
-
-		bits -= 8;
-	}
-
-	return true;
 }
 
 /**
@@ -67,19 +47,13 @@ function matchesHost(clientHost: string, ruleValue: string | string[]): boolean 
 /**
  * Check if a request matches an access rule
  */
-function matchesRule(rule: AccessRule, c: Context): boolean {
+function matchesRule(rule: AccessRule, c: Context, ipOptions?: ClientIpOptions): boolean {
 	switch (rule.type) {
 		case "all":
 			return true;
 
 		case "ip": {
-			// Get client IP from various headers or context
-			const clientIP =
-				c.req.header("x-forwarded-for")?.split(",")[0].trim() ||
-				c.req.header("x-real-ip") ||
-				c.env?.REMOTE_ADDR ||
-				"127.0.0.1";
-
+			const clientIP = resolveClientIp(c, ipOptions);
 			return rule.value ? matchesIP(clientIP, rule.value) : false;
 		}
 
@@ -104,14 +78,18 @@ function matchesRule(rule: AccessRule, c: Context): boolean {
 /**
  * Evaluate access control rules
  */
-function evaluateAccessControl(config: AccessControlConfig, c: Context): boolean {
+function evaluateAccessControl(
+	config: AccessControlConfig,
+	c: Context,
+	ipOptions?: ClientIpOptions,
+): boolean {
 	const order = config.order || "allow,deny";
 
 	// Check if request matches allow rules
-	const allowMatches = config.allow.some((rule) => matchesRule(rule, c));
+	const allowMatches = config.allow.some((rule) => matchesRule(rule, c, ipOptions));
 
 	// Check if request matches deny rules
-	const denyMatches = config.deny.some((rule) => matchesRule(rule, c));
+	const denyMatches = config.deny.some((rule) => matchesRule(rule, c, ipOptions));
 
 	// Apply order logic
 	switch (order) {
@@ -149,9 +127,10 @@ function evaluateAccessControl(config: AccessControlConfig, c: Context): boolean
  */
 export function createAccessControlMiddleware(
 	config: AccessControlConfig,
+	ipOptions?: ClientIpOptions,
 ): (c: Context, next: () => Promise<void>) => Promise<Response | void> {
 	return async (c, next) => {
-		const allowed = evaluateAccessControl(config, c);
+		const allowed = evaluateAccessControl(config, c, ipOptions);
 
 		if (!allowed) {
 			return c.text("Forbidden", 403);

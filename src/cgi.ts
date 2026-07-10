@@ -1,8 +1,10 @@
 import { type Context, Hono } from "hono";
+import { bodyLimit } from "hono/body-limit";
 import { getCookie } from "hono/cookie";
 import type { HtmlEscapedString } from "hono/utils/html";
 import type { ContentfulStatusCode, RedirectStatusCode } from "hono/utils/http-status";
 import { generateCgiError, generateCgiInfo } from "./html.js";
+import { resolveClientIp } from "./htaccess/utils.js";
 import type { HtaccessConfig } from "./htaccess/types.js";
 import {
 	applyBasicAuth,
@@ -17,6 +19,19 @@ import {
 declare const __version__: string;
 
 export type ConfigObject = Record<string, unknown>;
+
+/** HTTP methods that never carry a request body; `parseBody` is skipped for these. */
+const BODYLESS_METHODS = new Set(["GET", "HEAD"]);
+
+/**
+ * Default request body size limit in bytes (10 MiB), applied when
+ * `MatchboxOptions.maxBodySize` is not set. Pass `maxBodySize: 0` to disable
+ * the limit entirely.
+ */
+const DEFAULT_MAX_BODY_SIZE = 10 * 1024 * 1024;
+
+/** Sentinel returned by the handler-timeout race when the timeout wins. */
+const HANDLER_TIMEOUT = Symbol("matchbox-handler-timeout");
 
 /**
  * --- Session Cookie Configuration ---
@@ -48,6 +63,43 @@ export interface MatchboxOptions {
 	middleware?: Array<(c: Context, next: () => Promise<void>) => Promise<Response | undefined>>;
 	/** Custom logging function */
 	logger?: (message: string, level?: "info" | "warn" | "error") => void;
+	/**
+	 * Trust proxy-supplied headers (`X-Forwarded-For`, `X-Real-IP`) when
+	 * resolving the client IP for `$_SERVER.REMOTE_ADDR`, `%{REMOTE_ADDR}`
+	 * htaccess variables, and Allow/Deny IP matching. Only enable this behind
+	 * a reverse proxy you control, since these headers are otherwise
+	 * attacker-controlled and can be used to spoof the client IP and bypass
+	 * IP-based access control. Defaults to `false`.
+	 */
+	trustProxy?: boolean;
+	/**
+	 * Secret used to sign the `$_SESSION` cookie with HMAC-SHA256 so clients
+	 * cannot tamper with session contents. When omitted, session cookies are
+	 * unsigned (legacy behavior) — a warning is logged (via `logger`, at most
+	 * once) recommending this be set in production.
+	 */
+	sessionSecret?: string;
+	/**
+	 * Maximum accepted request body size in bytes. Requests exceeding this
+	 * limit receive a `413 Payload Too Large` response before their body is
+	 * parsed. Defaults to 10 MiB (10 * 1024 * 1024); pass `0` to disable the
+	 * limit entirely.
+	 */
+	maxBodySize?: number;
+	/**
+	 * Maximum time, in milliseconds, a page `component` may take to resolve
+	 * before Matchbox responds with `504 Gateway Timeout`. When omitted (the
+	 * default), handlers may run indefinitely, matching prior behavior.
+	 */
+	handlerTimeoutMs?: number;
+	/**
+	 * When true, unhandled errors thrown by a page `component` render with
+	 * their message and stack trace in the response body. Defaults to
+	 * `false`, which renders a generic "Internal Server Error" message
+	 * instead — the original error is still passed to `logger` (if
+	 * configured) regardless of this setting.
+	 */
+	debug?: boolean;
 }
 
 /**
@@ -155,10 +207,17 @@ export const createCgiWithPages = (
 	}
 
 	// Apply htaccess middleware (headers, rewrite, access control)
-	applyHtaccessMiddleware(app, htaccessConfig);
+	applyHtaccessMiddleware(app, htaccessConfig, { trustProxy: options.trustProxy });
 
 	// Apply Basic Auth middleware
 	applyBasicAuth(app, authMap);
+
+	// Reject oversized request bodies before they are read/parsed.
+	// maxBodySize: 0 explicitly disables the limit.
+	const maxBodySize = options.maxBodySize ?? DEFAULT_MAX_BODY_SIZE;
+	if (maxBodySize > 0) {
+		app.use("*", bodyLimit({ maxSize: maxBodySize }));
+	}
 
 	// 4. Page Routing
 	pages.forEach(({ urlPath, dirPath, component }) => {
@@ -173,7 +232,19 @@ export const createCgiWithPages = (
 		routes.forEach((route) => {
 			app.all(route, async (c) => {
 				const $_GET = c.req.query();
-				const body = await c.req.parseBody({ all: true }).catch(() => ({}));
+
+				// Bodyless methods (GET/HEAD) never carry a form body - skip parsing entirely.
+				const body = BODYLESS_METHODS.has(c.req.method.toUpperCase())
+					? {}
+					: await c.req.parseBody({ all: true }).catch((error: unknown) => {
+							options.logger?.(
+								`Failed to parse request body for ${urlPath}: ${
+									error instanceof Error ? error.message : String(error)
+								}`,
+								"warn",
+							);
+							return {};
+						});
 				const $_POST: Record<string, string> = {};
 				const $_FILES: Record<string, File | File[]> = {};
 				for (const [key, value] of Object.entries(body)) {
@@ -193,9 +264,11 @@ export const createCgiWithPages = (
 					typeof process !== "undefined" && process.env ? process.env : c.env || {}
 				) as Record<string, unknown>;
 
-				let $_SESSION: Record<string, unknown> = getSessionFromCookie(
+				let $_SESSION: Record<string, unknown> = await getSessionFromCookie(
 					c,
 					options.sessionCookie?.name,
+					options.sessionSecret,
+					options.logger,
 				);
 
 				let responseStatus = 200;
@@ -203,11 +276,12 @@ export const createCgiWithPages = (
 					"Content-Type": "text/html; charset=utf-8",
 				};
 
+				// Note: intentionally excludes $_ENV - environment variables are only
+				// exposed via context.$_ENV, never mixed into $_SERVER/cgiinfo (SEC-010).
 				const $_SERVER = {
-					...$_ENV,
 					REQUEST_METHOD: c.req.method,
 					REQUEST_URI: c.req.url,
-					REMOTE_ADDR: c.req.header("x-forwarded-for") || "127.0.0.1",
+					REMOTE_ADDR: resolveClientIp(c, { trustProxy: options.trustProxy }),
 					USER_AGENT: c.req.header("user-agent") || "",
 					SCRIPT_NAME: urlPath,
 					PATH_INFO: c.req.path.replace(urlPath, "") || "/",
@@ -271,10 +345,33 @@ export const createCgiWithPages = (
 				};
 
 				try {
-					const result = await component(context);
+					let result: unknown;
+					if (options.handlerTimeoutMs !== undefined) {
+						const timeoutMs = options.handlerTimeoutMs;
+						const outcome = await Promise.race([
+							component(context),
+							new Promise<typeof HANDLER_TIMEOUT>((resolve) => {
+								setTimeout(() => resolve(HANDLER_TIMEOUT), timeoutMs);
+							}),
+						]);
+
+						if (outcome === HANDLER_TIMEOUT) {
+							options.logger?.(`Handler for ${urlPath} timed out after ${timeoutMs}ms`, "warn");
+							return c.text("Gateway Timeout", 504);
+						}
+						result = outcome;
+					} else {
+						result = await component(context);
+					}
 
 					// Save session to cookie
-					saveSessionToCookie(c, $_SESSION, options.sessionCookie);
+					await saveSessionToCookie(
+						c,
+						$_SESSION,
+						options.sessionCookie,
+						options.sessionSecret,
+						options.logger,
+					);
 
 					// Redirect
 					if (isRedirectObject(result)) {
@@ -302,7 +399,13 @@ export const createCgiWithPages = (
 					// Default to HTML response
 					return c.html(String(result ?? ""), responseStatus as ContentfulStatusCode);
 				} catch (error: unknown) {
-					return c.html(generateCgiError({ error, $_SERVER }), 500);
+					options.logger?.(
+						`Unhandled error in ${urlPath}: ${
+							error instanceof Error ? (error.stack ?? error.message) : String(error)
+						}`,
+						"error",
+					);
+					return c.html(generateCgiError({ error, $_SERVER, debug: options.debug ?? false }), 500);
 				}
 			});
 		});
