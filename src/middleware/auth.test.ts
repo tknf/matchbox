@@ -156,6 +156,33 @@ describe("applyBasicAuth", () => {
 		expect(res2.status).toBe(401);
 	});
 
+	test("ignores malformed lines without a password field", async () => {
+		const app = new Hono();
+		const authMap = {
+			"/admin": "malformedlinewithoutcolon\nadmin:secret123",
+		};
+		applyBasicAuth(app, authMap);
+		app.get("*", (c) => c.text("OK", 200));
+
+		// The malformed entry is skipped, so only the valid credential works.
+		const credentials = btoa("admin:secret123");
+		const res = await app.request("/admin/dashboard", {
+			headers: {
+				Authorization: `Basic ${credentials}`,
+			},
+		});
+		expect(res.status).toBe(200);
+
+		// The malformed username cannot be used to authenticate.
+		const badCredentials = btoa("malformedlinewithoutcolon:");
+		const res2 = await app.request("/admin/dashboard", {
+			headers: {
+				Authorization: `Basic ${badCredentials}`,
+			},
+		});
+		expect(res2.status).toBe(401);
+	});
+
 	test("skips authentication when htpasswd content is empty", async () => {
 		const app = new Hono();
 		const authMap = {
