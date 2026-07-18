@@ -106,6 +106,29 @@ describe("generateCgiError", () => {
 		expect(html).toContain("127.0.0.1");
 	});
 
+	test("falls back to a placeholder when an Error has no stack trace", () => {
+		const error = new Error("no stack here");
+		error.stack = undefined;
+
+		const html = String(
+			generateCgiError({
+				error,
+				$_SERVER: {
+					REQUEST_METHOD: "GET",
+					REQUEST_URI: "http://localhost/",
+					REMOTE_ADDR: "127.0.0.1",
+					USER_AGENT: "vitest",
+					SCRIPT_NAME: "/index.cgi",
+					PATH_INFO: "/",
+					QUERY_STRING: "",
+				},
+				debug: true,
+			}),
+		);
+
+		expect(html).toContain("(no stack trace available)");
+	});
+
 	test("renders a non-Error thrown value's string form when debug is true", () => {
 		const html = String(
 			generateCgiError({

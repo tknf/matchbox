@@ -550,5 +550,17 @@ describe("htaccess utils", () => {
 				/Invalid CIDR prefix length/,
 			);
 		});
+
+		test("throws when the network address is not an IP literal", () => {
+			expect(() => isSameNetwork("192.168.1.1", "not-an-ip", 24)).toThrow(
+				/Invalid network address in CIDR rule/,
+			);
+		});
+
+		test("throws when the network address has IP-like syntax but malformed octets", () => {
+			expect(() => isSameNetwork("192.168.1.1", "999.999.999.999", 24)).toThrow(
+				/Invalid network address in CIDR rule/,
+			);
+		});
 	});
 });
