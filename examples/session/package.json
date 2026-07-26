@@ -3,7 +3,7 @@
 		"dev": "vite"
 	},
 	"devDependencies": {
-		"@hono/vite-dev-server": "^0.23.0",
+		"@hono/vite-dev-server": "^0.26.1",
 		"vite": "^7.3.0"
 	}
 }
