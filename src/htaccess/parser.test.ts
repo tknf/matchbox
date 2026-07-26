@@ -58,6 +58,42 @@ describe("Htaccess Parser", () => {
 				value: "LOCAL_ACCESS",
 			});
 		});
+
+		test("should parse a valid IPv6 CIDR rule", () => {
+			const config = parseHtaccess("Allow from 2001:db8::/32");
+			expect(config.accessControl?.allow).toContainEqual({
+				type: "ip",
+				value: ["2001:db8::/32"],
+			});
+		});
+
+		test("should parse boundary IPv4 and IPv6 prefixes", () => {
+			expect(() => parseHtaccess("Allow from 192.168.1.0/0")).not.toThrow();
+			expect(() => parseHtaccess("Allow from 192.168.1.0/32")).not.toThrow();
+			expect(() => parseHtaccess("Allow from 2001:db8::/0")).not.toThrow();
+			expect(() => parseHtaccess("Allow from 2001:db8::/128")).not.toThrow();
+		});
+
+		test("should throw on an empty CIDR prefix (trailing slash)", () => {
+			expect(() => parseHtaccess("Allow from 192.168.1.0/")).toThrow(/Invalid CIDR prefix length/);
+		});
+
+		test("should throw on a non-numeric CIDR prefix", () => {
+			// Uses an IPv6 literal because the IPv4 access-rule classifier only
+			// treats digit/dot/slash-only tokens as IPs; a trailing letter would
+			// fall through to the hostname branch instead. ":" always signals IP.
+			expect(() => parseHtaccess("Allow from 2001:db8::/abc")).toThrow(
+				/Invalid CIDR prefix length/,
+			);
+		});
+
+		test("should throw on an out-of-range IPv4 CIDR prefix", () => {
+			expect(() => parseHtaccess("Deny from 192.168.1.0/33")).toThrow(/Invalid CIDR prefix length/);
+		});
+
+		test("should throw on an out-of-range IPv6 CIDR prefix", () => {
+			expect(() => parseHtaccess("Deny from 2001:db8::/129")).toThrow(/Invalid CIDR prefix length/);
+		});
 	});
 
 	describe("Headers", () => {

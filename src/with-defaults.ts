@@ -2,10 +2,13 @@ import { createCgiWithPages, type MatchboxOptions, type Page } from "./cgi.js";
 import { parseHtaccess } from "./htaccess/parser.js";
 import type { HtaccessConfig } from "./htaccess/types.js";
 
-declare const __MATCHBOX_CONFIG__: Record<string, any> | undefined;
+declare const __MATCHBOX_CONFIG__: Record<string, unknown> | undefined;
+
+/** Shape of an eagerly-loaded `*.cgi.{tsx,jsx}` module. */
+type CgiModule = { default: Page["component"] };
 
 const loadPagesFromPublic = () => {
-	const modules = import.meta.glob("/public/**/*.cgi.{tsx,jsx}", {
+	const modules = import.meta.glob<CgiModule>("/public/**/*.cgi.{tsx,jsx}", {
 		eager: true,
 	});
 	const htpasswds = import.meta.glob("/public/**/.htpasswd", {
@@ -40,7 +43,7 @@ const loadPagesFromPublic = () => {
 		const urlPath = key.replace(basePathRegex, "").replace(/.tsx$/, "").replace(/.jsx$/, "");
 		const isIndex = urlPath.endsWith("/index.cgi") || urlPath === "/index.cgi";
 		const dirPath = isIndex ? urlPath.replace(/\/index\.cgi$/, "/") : null;
-		return { urlPath, dirPath, component: (modules as any)[key].default };
+		return { urlPath, dirPath, component: modules[key].default };
 	});
 
 	const authMap = Object.keys(htpasswds).reduce(

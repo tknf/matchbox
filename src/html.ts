@@ -8,7 +8,7 @@ export const generateCgiInfo = ({
 	config,
 }: Pick<CgiContext, "$_SERVER" | "$_SESSION" | "$_REQUEST" | "config">) => {
 	return () => {
-		const infoSection = ({ title, data }: { title: string; data: any }) => {
+		const infoSection = ({ title, data }: { title: string; data: Record<string, unknown> }) => {
 			return html`
 			<div style="margin-bottom: 20px; width: 100%; max-width: 900px;">
 				<h2 style="background: #ccccff; color: #000; padding: 5px 10px; margin: 0; font-size: 1.2em; border: 1px solid #000; font-family: 'MS PGothic', sans-serif;">${title}</h2>
@@ -34,7 +34,7 @@ export const generateCgiInfo = ({
 			<div style="width: 100%; max-width: 900px; padding: 15px; background: #ffffcc; border: 1px dashed #000000; margin-bottom: 20px; text-align: center;">
 				<strong>Server Software:</strong> Matchbox Engine on ${typeof process !== "undefined" ? "Node.js/Bun" : "Edge"}
 			</div>
-			${infoSection({ title: "$_SERVER (Environment)", data: $_SERVER })}
+			${infoSection({ title: "$_SERVER", data: $_SERVER })}
 			${infoSection({ title: "$_SESSION", data: $_SESSION })}
 			${infoSection({ title: "$_REQUEST", data: $_REQUEST })}
 			${infoSection({ title: "Site Configuration", data: config })}
@@ -46,19 +46,32 @@ export const generateCgiInfo = ({
 	};
 };
 
+/**
+ * Render the runtime error page shown when a CGI page handler throws.
+ *
+ * With `debug` disabled (the default), the error message and stack trace are
+ * withheld from the response body — only a generic "Internal Server Error"
+ * is shown, since exposing exception internals to clients can leak
+ * implementation details. Pass `debug: true` (e.g. for local development) to
+ * include the original message and stack trace.
+ */
 export const generateCgiError = ({
 	error,
 	$_SERVER,
+	debug = false,
 }: {
-	// biome-ignore lint/suspicious/noExplicitAny: error can be any
-	error: any;
+	error: unknown;
 	$_SERVER: CgiContext["$_SERVER"];
+	debug?: boolean;
 }) => {
+	const message = error instanceof Error ? error.message : String(error);
+	const stack = error instanceof Error ? (error.stack ?? "(no stack trace available)") : undefined;
+
 	return html`
 		 <div style="padding:2rem; background:#fffafa; border:5px double #cc0000; font-family: 'MS PGothic', sans-serif;">
 				<h1 style="color:#cc0000; border-bottom: 2px solid #cc0000; padding-bottom: 5px;">Matchbox: Runtime Exception</h1>
-				<p><strong>Fatal Error:</strong> ${error.message}</p>
-				<pre style="background:#f0f0f0; padding:1rem; border:1px inset #ccc; overflow: auto;">${error.stack}</pre>
+				<p><strong>Fatal Error:</strong> ${debug ? message : "Internal Server Error"}</p>
+				${debug ? html`<pre style="background:#f0f0f0; padding:1rem; border:1px inset #ccc; overflow: auto;">${stack}</pre>` : ""}
 				<hr style="border: 0; border-top: 1px solid #cc0000;" />
 				<div style="text-align: right; font-size: 0.8em;">Matchbox CGI Engine Server at ${$_SERVER.REMOTE_ADDR}</div>
 			</div>

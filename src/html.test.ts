@@ -61,7 +61,7 @@ describe("generateCgiInfo", () => {
 });
 
 describe("generateCgiError", () => {
-	test("renders runtime error details", () => {
+	test("hides the error message and stack trace by default (debug: false)", () => {
 		const html = String(
 			generateCgiError({
 				error: new Error("Something went wrong"),
@@ -78,7 +78,74 @@ describe("generateCgiError", () => {
 		);
 
 		expect(html).toContain("Matchbox: Runtime Exception");
-		expect(html).toContain("Something went wrong");
+		expect(html).toContain("Internal Server Error");
+		expect(html).not.toContain("Something went wrong");
 		expect(html).toContain("127.0.0.1");
+	});
+
+	test("includes the error message and stack trace when debug is true", () => {
+		const html = String(
+			generateCgiError({
+				error: new Error("Something went wrong"),
+				$_SERVER: {
+					REQUEST_METHOD: "GET",
+					REQUEST_URI: "http://localhost/",
+					REMOTE_ADDR: "127.0.0.1",
+					USER_AGENT: "vitest",
+					SCRIPT_NAME: "/index.cgi",
+					PATH_INFO: "/",
+					QUERY_STRING: "",
+				},
+				debug: true,
+			}),
+		);
+
+		expect(html).toContain("Matchbox: Runtime Exception");
+		expect(html).toContain("Something went wrong");
+		expect(html).toContain("Error: Something went wrong");
+		expect(html).toContain("127.0.0.1");
+	});
+
+	test("falls back to a placeholder when an Error has no stack trace", () => {
+		const error = new Error("no stack here");
+		error.stack = undefined;
+
+		const html = String(
+			generateCgiError({
+				error,
+				$_SERVER: {
+					REQUEST_METHOD: "GET",
+					REQUEST_URI: "http://localhost/",
+					REMOTE_ADDR: "127.0.0.1",
+					USER_AGENT: "vitest",
+					SCRIPT_NAME: "/index.cgi",
+					PATH_INFO: "/",
+					QUERY_STRING: "",
+				},
+				debug: true,
+			}),
+		);
+
+		expect(html).toContain("(no stack trace available)");
+	});
+
+	test("renders a non-Error thrown value's string form when debug is true", () => {
+		const html = String(
+			generateCgiError({
+				error: "a plain string was thrown",
+				$_SERVER: {
+					REQUEST_METHOD: "GET",
+					REQUEST_URI: "http://localhost/",
+					REMOTE_ADDR: "127.0.0.1",
+					USER_AGENT: "vitest",
+					SCRIPT_NAME: "/index.cgi",
+					PATH_INFO: "/",
+					QUERY_STRING: "",
+				},
+				debug: true,
+			}),
+		);
+
+		expect(html).toContain("a plain string was thrown");
 	});
 });

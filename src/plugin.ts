@@ -6,7 +6,7 @@ import type { Plugin, ResolvedConfig } from "vite";
  * --- Matchbox Plugin Options ---
  */
 export interface MatchboxPluginOptions {
-	config?: any;
+	config?: Record<string, unknown>;
 	publicDir?: string;
 }
 

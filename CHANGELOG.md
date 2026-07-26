@@ -5,13 +5,77 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Breaking Changes
+
+- **BREAKING (SEC-010):** `$_SERVER` no longer includes environment
+  variables, and `cgiinfo()`'s "$_SERVER" section no longer dumps them.
+  Previously all environment variables (`process.env`/`c.env`) were merged
+  into `$\_SERVER`, which could leak secrets to any page reading
+`$_SERVER.SOME_VAR` or to anyone viewing a page that calls `cgiinfo()`.
+  `$\_SERVER` now contains only request metadata (`REQUEST_METHOD`,
+`REQUEST_URI`, `REMOTE_ADDR`, `USER_AGENT`, `SCRIPT_NAME`, `PATH_INFO`,
+`QUERY_STRING`).
+  - Migration: read environment variables from `context.$_ENV` instead of
+    `context.$_SERVER` — `$_ENV` is unaffected and still exposes the full
+    environment as before.
+
+### Added
+
+- ✨ **`trustProxy` option** (default `false`) — controls whether
+  `X-Forwarded-For`/`X-Real-IP` are trusted when resolving the client IP for
+  `$_SERVER.REMOTE_ADDR`, the `%{REMOTE_ADDR}` htaccess variable, and
+  Allow/Deny IP matching. Previously these headers were always trusted,
+  letting a client spoof its IP to bypass IP-based access control; the new
+  default ignores them and falls back to a directly-known address (or
+  `127.0.0.1`). All three call sites now share one resolver, so they always
+  agree on the same client IP. See
+  [Security Guide](./docs/security.md#sec-003-x-forwarded-for-trust-is-opt-in).
+- ✨ **`sessionSecret` option** — signs the `$_SESSION` cookie with
+  HMAC-SHA256 (via Web Crypto, so it works on Node, Bun, and Cloudflare
+  Workers) so a client can no longer tamper with session contents
+  undetected. Without it, sessions remain unsigned as before (with a one-time
+  `logger` warning recommending it be set in production). See
+  [Security Guide](./docs/security.md#sec-004-session-cookie-signing-is-opt-in-via-sessionsecret).
+- ✨ **`maxBodySize` option** (default 10 MiB) — rejects request bodies over
+  this size with `413` before they are parsed, via `hono/body-limit`. Pass
+  `0` to disable the limit. Bodyless methods (`GET`/`HEAD`) now skip
+  `parseBody` entirely.
+- ✨ **`handlerTimeoutMs` option** (opt-in, no default) — responds `504
+Gateway Timeout` if a page `component` takes longer than this to resolve.
+- ✨ **`debug` option** (default `false`) — the runtime error page shows a
+  generic "Internal Server Error" instead of the error message/stack trace
+  unless `debug: true` is set; the original error is still passed to
+  `logger` regardless. See
+  [Security Guide](./docs/security.md#sec-006-error-page-detail-is-opt-in-via-debug).
+
+### Changed
+
+- `saveSessionToCookie`/`getSessionFromCookie` are now `async` (needed for
+  HMAC signing via Web Crypto). If you call them directly (outside of
+  `createCgi`/`createCgiWithPages`), `await` the calls.
+- `hono/basic-auth` middleware and the `.htpasswd` credential map are now
+  built once per directory at setup time instead of on every request;
+  credential lookup uses a `Map` and a constant-time password comparison.
+- Failed `parseBody` calls are now logged via `logger` (at `"warn"` level)
+  instead of being silently swallowed; the request still falls back to an
+  empty body.
+
+### Fixed
+
+- Client IP resolution for `$_SERVER.REMOTE_ADDR`, htaccess `%{REMOTE_ADDR}`,
+  and Allow/Deny IP matching previously used three separate, inconsistent
+  implementations (e.g. one didn't split `X-Forwarded-For` on commas). They
+  now share a single implementation (`resolveClientIp`).
+
 ## [0.3.0] - 2024-12-24
 
 ### Breaking Changes
 
 - **BREAKING:** Changed the fourth parameter of `createCgiWithPages` from `RewriteMap` to `HtaccessConfig` type
   - Migration: Use the new `parseHtaccess()` function or continue using `.htaccess` files (automatic migration)
-  - See [Migration Guide](./docs/htaccess-features.md#migration-from-v02x-to-v03) for details
+  - See [Migration Guide](./docs/htaccess.md#migration-from-v02x-to-v030) for details
 - **BREAKING:** .htaccess parser is now more strict - malformed directives will throw errors instead of being silently ignored
   - Invalid syntax will be reported with clear error messages
   - Use try-catch when parsing user-provided .htaccess content
@@ -31,9 +95,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `[QSA]` - Query String Append
   - `[QSD]` - Query String Discard
   - `[NE]` - No Escape
-- ✨ **ErrorDocument** - Custom error pages for HTTP status codes
+- ✨ **ErrorDocument** - Custom error handling for HTTP status codes
   - Support for 4xx and 5xx error codes
-  - Serve custom HTML error pages from your public directory
+  - External URL targets (`http://`/`https://`) trigger a redirect
+  - Local path targets are parsed but not yet served (see [`.htaccess` guide](./docs/htaccess.md#error-handling))
 - ✨ **Header Directive** - HTTP header manipulation
   - `Header set` - Set response headers
   - `Header append` - Append to existing headers
@@ -53,7 +118,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Comment support: `#`
   - Backward compatible with simplified flag syntax (both `[R=301]` and `R=301`)
 - 📚 **New Documentation**
-  - [Apache .htaccess Features Reference](./docs/htaccess-features.md) - Complete feature list
+  - [Apache .htaccess Features Reference](./docs/htaccess.md) - Complete feature list
   - Migration guide for v0.2.x users
   - Usage examples and best practices
 
@@ -93,7 +158,7 @@ const htaccessConfig = {
 };
 ```
 
-See the [full migration guide](./docs/htaccess-features.md#migration-from-v02x-to-v03) for more details.
+See the [full migration guide](./docs/htaccess.md#migration-from-v02x-to-v030) for more details.
 
 ## [0.2.6] - 2024-12-23
 
@@ -113,4 +178,4 @@ See the [full migration guide](./docs/htaccess-features.md#migration-from-v02x-t
 
 ---
 
-For the complete list of planned features, see [docs/htaccess-features.md](./docs/htaccess-features.md).
+For the complete list of planned features, see [docs/roadmap.md](./docs/roadmap.md).

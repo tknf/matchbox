@@ -7,7 +7,7 @@
 - ✅ **RewriteCond** - Conditional URL rewriting with variable expansion
 - ✅ **Complete RewriteRule Flags** - [L], [R], [F], [G], [NC], [QSA], [QSD], [NE]
 - ✅ **Redirects** (Redirect directive with status code)
-- ✅ **ErrorDocument** - Custom error pages for HTTP status codes
+- ⚠️ **ErrorDocument** - External URL redirect on matching status codes (local paths parsed but not served, see [Error Handling](#error-handling))
 - ✅ **Security Headers** (Header directive with set/append/unset actions)
 - ✅ **CORS Headers** (Access-Control-\* headers with helper functions)
 - ✅ **Auth Directives** (AuthType, AuthName, Require - parsing only)
@@ -176,7 +176,8 @@ Require host example.com
 Require all granted         # or denied
 ```
 
-See [Auth & CORS Examples](./auth-cors-examples.md) for detailed usage.
+See the [Security Guide](./security.md#sec-001-auth-directives-are-parsed-but-not-enforced)
+for the current state of `Require`/`AuthType` enforcement.
 
 ### IP-based Access Control (Legacy)
 
@@ -273,17 +274,22 @@ Deny from 203.0.113.0/24
 
 ## Error Handling
 
-✅ **ErrorDocument** - Implemented
+✅ **ErrorDocument** - External URL redirect implemented; local paths not yet served
 
 ```apache
-ErrorDocument 404 /errors/404.html
+# Supported today: redirects to an external URL when the status matches
+ErrorDocument 404 https://example.com/errors/404.html
+ErrorDocument 500 https://example.com/errors/500.html
+
+# Parsed, but NOT served: the matching directive is stored, and Matchbox
+# responds with a plain "Error 404: See /errors/404.html" text body instead
+# of the file's contents.
 ErrorDocument 403 /errors/forbidden.html
-ErrorDocument 500 /errors/internal.html
 ```
 
 ⏳ **Future Enhancements:**
 
-- Support for external URLs
+- Serving local error page content (currently only a placeholder text response is returned)
 - Error document variables
 - Dynamic error messages
 
@@ -503,6 +509,14 @@ RewriteRule ^about$ /about.cgi [NC,L]
 
 ### Security Setup
 
+> **Note:** The `ErrorDocument` lines below use local paths for illustration,
+> but local paths are only parsed, not served (see [Error Handling](#error-handling)) —
+> use external URLs if you need `ErrorDocument` to actually redirect. The
+> `AuthType`/`AuthName`/`AuthUserFile`/`Require` lines are parsed but **not
+> enforced** by Matchbox (see [Security Guide](./security.md#sec-001-auth-directives-are-parsed-but-not-enforced));
+> real Basic Auth enforcement comes from placing a `.htpasswd` file in the
+> directory, as described in [Authentication & Authorization](#authentication--authorization).
+
 ```apache
 # Comprehensive security headers
 Header set X-Frame-Options "SAMEORIGIN"
@@ -519,12 +533,13 @@ Header set Access-Control-Allow-Methods "GET, POST, PUT, DELETE, OPTIONS"
 Header set Access-Control-Allow-Headers "Content-Type, Authorization"
 Header set Access-Control-Allow-Credentials "true"
 
-# Custom error pages
+# Custom error pages (local paths not served; use external URLs to redirect)
 ErrorDocument 404 /errors/404.html
 ErrorDocument 403 /errors/403.html
 ErrorDocument 500 /errors/500.html
 
-# Basic authentication
+# Parsed but not enforced (see note above) — place a real .htpasswd file
+# under the protected directory for actual Basic Auth enforcement
 AuthType Basic
 AuthName "Restricted Area"
 AuthUserFile /path/to/.htpasswd

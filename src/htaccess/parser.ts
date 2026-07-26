@@ -10,6 +10,7 @@ import type {
 	RewriteFlags,
 	RewriteRuleConfig,
 } from "./types.js";
+import { assertValidCidrNotation } from "./utils.js";
 
 /**
  * Tokenize a line, handling quoted strings and escape sequences
@@ -233,7 +234,10 @@ function parseRedirect(tokens: string[], directive: string): RedirectConfig {
 }
 
 /**
- * Parse AuthType directive
+ * Parse AuthType directive.
+ *
+ * Note: AuthType is parsed for compatibility but is NOT enforced at runtime
+ * in the current version.
  */
 function parseAuthType(tokens: string[]): "Basic" | "Digest" {
 	if (tokens.length < 2) {
@@ -249,7 +253,10 @@ function parseAuthType(tokens: string[]): "Basic" | "Digest" {
 }
 
 /**
- * Parse Require directive
+ * Parse Require directive.
+ *
+ * Note: Require is parsed for compatibility but is NOT enforced at runtime
+ * in the current version.
  */
 function parseRequire(tokens: string[]): RequireConfig {
 	if (tokens.length < 2) {
@@ -336,7 +343,11 @@ function parseAccessRule(tokens: string[]): AccessRule {
 	const isIP = /^[\d./]+$/.test(target) || target.includes(":");
 	if (isIP) {
 		// Allow from 192.168.1.0/24 or multiple IPs
-		return { type: "ip", value: tokens.slice(2) };
+		const ips = tokens.slice(2);
+		for (const ip of ips) {
+			assertValidCidrNotation(ip);
+		}
+		return { type: "ip", value: ips };
 	}
 
 	// Otherwise treat as hostname
@@ -411,6 +422,9 @@ export function parseHtaccess(content: string): DirectoryConfig {
 					config.headers.push(parseHeader(tokens));
 					break;
 
+				// Auth directives (AuthType/AuthName/AuthUserFile/AuthGroupFile/
+				// AuthDigestProvider/Require) below are parsed for compatibility
+				// but are NOT enforced at runtime in the current version.
 				case "AuthType":
 					if (!config.authConfig) {
 						config.authConfig = {};
@@ -502,8 +516,7 @@ export function parseHtaccess(content: string): DirectoryConfig {
 					break;
 
 				default:
-					// Unknown directive - log warning but continue
-					// console.warn(`Unknown directive at line ${i + 1}: ${directive}`);
+					// Unknown directives are intentionally ignored (parser has no side effects).
 					break;
 			}
 		} catch (error) {

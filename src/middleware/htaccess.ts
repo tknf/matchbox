@@ -3,12 +3,20 @@ import { createRewriteMiddleware } from "../htaccess/rewrite.js";
 import { createHeaderMiddleware } from "../htaccess/headers.js";
 import { createErrorDocumentMiddleware } from "../htaccess/error-document.js";
 import { createAccessControlMiddleware } from "../htaccess/access-control.js";
+import type { ClientIpOptions } from "../htaccess/utils.js";
 import type { HtaccessConfig } from "../htaccess/types.js";
 
 /**
- * Apply htaccess middleware to Hono app in the correct order
+ * Apply htaccess middleware to Hono app in the correct order.
+ *
+ * `ipOptions` controls how `%{REMOTE_ADDR}` (RewriteCond) and Allow/Deny IP
+ * rules resolve the client IP; see `ClientIpOptions` for details.
  */
-export function applyHtaccessMiddleware(app: Hono, htaccessConfig: HtaccessConfig): void {
+export function applyHtaccessMiddleware(
+	app: Hono,
+	htaccessConfig: HtaccessConfig,
+	ipOptions?: ClientIpOptions,
+): void {
 	// 1. Headers Middleware (early to set security headers)
 	Object.entries(htaccessConfig).forEach(([dir, config]) => {
 		if (config.headers.length === 0) return;
@@ -30,14 +38,14 @@ export function applyHtaccessMiddleware(app: Hono, htaccessConfig: HtaccessConfi
 		];
 		if (allRules.length === 0) return;
 		const basePath = dir === "/" ? "" : dir.replace(/\/$/, "");
-		app.use(`${basePath}/*`, createRewriteMiddleware(allRules, basePath));
+		app.use(`${basePath}/*`, createRewriteMiddleware(allRules, basePath, ipOptions));
 	});
 
 	// 2.5. Access Control Middleware (Order/Allow/Deny)
 	Object.entries(htaccessConfig).forEach(([dir, config]) => {
 		if (!config.accessControl) return;
 		const basePath = dir === "/" ? "" : dir.replace(/\/$/, "");
-		app.use(`${basePath}/*`, createAccessControlMiddleware(config.accessControl));
+		app.use(`${basePath}/*`, createAccessControlMiddleware(config.accessControl, ipOptions));
 	});
 
 	// Note: Basic Auth is applied separately

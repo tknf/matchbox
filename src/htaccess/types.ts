@@ -36,6 +36,12 @@ export interface RewriteCondition {
 	testString: string; // e.g., %{HTTP_HOST}, %{REQUEST_URI}
 	pattern: string; // regex pattern
 	flags: ConditionFlags;
+	/**
+	 * Precompiled `RegExp` for `pattern`, cached by the middleware layer so it
+	 * is not recompiled on every request. Optional and absent from parser
+	 * output; when unset, consumers fall back to compiling `pattern` on demand.
+	 */
+	compiled?: RegExp;
 }
 
 /**
@@ -88,7 +94,12 @@ export interface RedirectConfig {
 }
 
 /**
- * Authentication configuration
+ * Authentication configuration.
+ *
+ * These directives (AuthType/AuthName/AuthUserFile/AuthGroupFile/
+ * AuthDigestProvider) are parsed for compatibility but are NOT enforced at
+ * runtime in the current version. Consumers who need actual authentication
+ * must read this config and implement enforcement themselves.
  */
 export interface AuthConfig {
 	authType?: "Basic" | "Digest";
@@ -100,7 +111,10 @@ export interface AuthConfig {
 }
 
 /**
- * Require directive configuration
+ * Require directive configuration.
+ *
+ * Like `AuthConfig`, `Require` is parsed for compatibility but is NOT
+ * enforced at runtime in the current version.
  */
 export interface RequireConfig {
 	type: "valid-user" | "user" | "group" | "ip" | "host" | "all";

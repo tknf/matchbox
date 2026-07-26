@@ -176,8 +176,28 @@ createCgi({
   logger: (message, level) => {
     console.log(`[${level ?? "info"}] ${message}`);
   },
+
+  // Trust X-Forwarded-For/X-Real-IP when resolving the client IP
+  // (default: false - only enable behind a reverse proxy you control)
+  trustProxy: false,
+
+  // Sign the $_SESSION cookie with HMAC-SHA256 so clients can't tamper
+  // with it (recommended in production; default: unsigned)
+  sessionSecret: process.env.SESSION_SECRET,
+
+  // Maximum accepted request body size in bytes (default: 10 MiB; 0 disables the limit)
+  maxBodySize: 10 * 1024 * 1024,
+
+  // Respond 504 if a page handler takes longer than this (default: no timeout)
+  handlerTimeoutMs: 30_000,
+
+  // Include error message/stack trace in the error page (default: false)
+  debug: process.env.NODE_ENV !== "production",
 });
 ```
+
+See [Security Guide](./docs/security.md) for the security rationale behind
+`trustProxy`, `sessionSecret`, and `debug`.
 
 ## Apache-Style Features
 
@@ -186,12 +206,17 @@ createCgi({
 Place a `.htpasswd` file in any directory under `public/` to protect it:
 
 ```
-# Generate with: htpasswd -c .htpasswd username
-admin:$apr1$abc123$...
-user:$apr1$xyz789$...
+admin:plaintext-password
+user:another-password
 ```
 
 All files in that directory and subdirectories will require authentication.
+
+> **Note:** Matchbox only supports **plain-text** passwords in `.htpasswd` —
+> it does not verify bcrypt/`apr1` (MD5) hashes. Apache's `htpasswd` command
+> generates hashed entries by default, which will **not** authenticate here;
+> write the password in plain text instead. See
+> [Security Guide](./docs/security.md#sec-005-htpasswd-only-supports-plain-text-passwords) for details.
 
 ### URL Rewriting and Redirects (.htaccess)
 
@@ -216,10 +241,17 @@ Header set X-Frame-Options "SAMEORIGIN"
 Header set X-Content-Type-Options "nosniff"
 Header set Strict-Transport-Security "max-age=31536000"
 
-# Custom error pages
-ErrorDocument 404 /errors/404.html
-ErrorDocument 500 /errors/500.html
+# Custom error pages (external URL redirect only, see note below)
+ErrorDocument 404 https://example.com/errors/404.html
+ErrorDocument 500 https://example.com/errors/500.html
 ```
+
+> **Note:** `ErrorDocument` currently only supports **external URLs**
+> (`http://`/`https://`), which trigger a redirect. Local paths (e.g.
+> `/errors/404.html`) are parsed but **not served** — Matchbox returns a
+> plain `Error 404: See /errors/404.html` text response instead of the file
+> contents. See [`.htaccess` guide](./docs/htaccess.md#error-handling) for
+> details.
 
 #### Supported RewriteRule Flags
 
@@ -249,7 +281,8 @@ Check out the [`examples/`](./examples) directory for complete working examples:
 
 - **basic** - Minimal setup with a simple page
 - **htaccess-auth** - Authentication and URL rewriting
-- **custom-middleware** - Custom middleware and logging
+- **file-upload** - Handling file uploads via `$_FILES`
+- **session** - Session management and stateful pages
 
 ## Documentation
 
@@ -266,7 +299,7 @@ Version 0.3.0 introduced enhanced `.htaccess` parsing. If you're upgrading:
 - ✅ Both `[R=301]` and `R=301` flag syntaxes are supported
 - ⚠️ Malformed directives now throw errors (previously silently ignored)
 
-See the [migration guide](./docs/htaccess.md#migration-from-v02x-to-v03) for details.
+See the [migration guide](./docs/htaccess.md#migration-from-v02x-to-v030) for details.
 
 ## Development
 
