@@ -4,11 +4,14 @@ allowBuilds:
   # Vite+'s optional esbuild fallback is unused; transforms and packing use Oxc/Rolldown.
   esbuild: false
 catalog:
+  "@types/node": ^24.13.4
   vite: npm:@voidzero-dev/vite-plus-core@0.3.0
   vitest: 4.1.11
   vite-plus: 0.3.0
   "@vitest/coverage-v8": 4.1.11
 overrides:
+  # Keep optional tooling peers aligned with the development Node.js types.
+  "@types/node": "catalog:"
   vite@*: "catalog:"
   vitest@*: "catalog:"
 peerDependencyRules:

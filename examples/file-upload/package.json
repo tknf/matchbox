@@ -5,7 +5,7 @@
 		"dev": "vp dev"
 	},
 	"devDependencies": {
-		"@hono/vite-dev-server": "^0.23.0",
+		"@hono/vite-dev-server": "^0.26.1",
 		"vite": "catalog:",
 		"vite-plus": "catalog:"
 	}

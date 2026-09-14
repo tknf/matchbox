@@ -9,16 +9,17 @@ jobs:
     name: "Release"
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: voidzero-dev/setup-vp@v1.20.0
         with:
           node-version-file: .node-version
           cache: true
           run-install: false
           registry-url: "https://registry.npmjs.org"
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/setup@v1
         with:
           version: 11.11.0
+          install: false
       - run: pnpm install --frozen-lockfile
       - run: pnpm run build
       - run: pnpm check
