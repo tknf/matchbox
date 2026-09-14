@@ -191,18 +191,22 @@ interface DirectoryConfig {
 
 ### `MatchboxPlugin(options?)`
 
-Vite plugin for Matchbox.
+Vite plugin for Matchbox. Version 1.x requires Vite 8 or a Vite 8-based Vite+
+toolchain. It configures `oxc.jsx` with `runtime: "automatic"` and
+`importSource: "hono/jsx"`; Vite 7 and the legacy `esbuild` JSX configuration are
+no longer supported by this plugin.
 
 ```typescript
+import { defineConfig } from "vite";
 import { MatchboxPlugin } from "@tknf/matchbox/plugin";
 
 export default defineConfig({
   plugins: [
     MatchboxPlugin({
-      publicDir?: string;
-      config?: Record<string, any>;
-    })
-  ]
+      publicDir: "public",
+      config: { appName: "My App" },
+    }),
+  ],
 });
 ```
 
@@ -210,6 +214,9 @@ export default defineConfig({
 
 - `publicDir` - Directory to scan for `.cgi` files (default: `"public"`)
 - `config` - Configuration object injected into `context.config`
+
+In Vite+ projects, import `defineConfig` from `"vite-plus"`. For upgrades from
+Matchbox 0.x, see the [migration guide](../README.md#migration-to-v100).
 
 ## Context API
 
@@ -384,7 +391,7 @@ Get the Matchbox version string.
 
 ```typescript
 const version = context.get_version();
-// "MatchboxCGI/v0.3.0"
+// "MatchboxCGI/v1.0.0"
 ```
 
 #### `get_modules()`

@@ -1,4 +1,4 @@
-import { describe, expect, test } from "vitest";
+import { describe, expect, test } from "vite-plus/test";
 import { parseHtaccess } from "./parser.js";
 
 describe("Htaccess Parser", () => {

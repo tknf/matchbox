@@ -5,15 +5,26 @@ package manager — please don't use `npm` or `yarn`.
 
 ## Setup
 
+Use the Node.js version in `.node-version` and the pnpm version declared in
+`package.json`. Vite+ is installed locally and runs through the package scripts.
+The library and all four examples share `pnpm-workspace.yaml` and the root lockfile.
+
 ```bash
 git clone https://github.com/tknf/matchbox.git
 cd matchbox
 pnpm install
+pnpm build
 ```
 
 ## Development Workflow
 
 ```bash
+# Check formatting, lint rules, and TypeScript types together
+pnpm check
+
+# Apply formatting and safe lint fixes
+pnpm check:fix
+
 # Run the test suite
 pnpm test
 
@@ -35,8 +46,24 @@ pnpm format:write
 pnpm build
 ```
 
-Before opening a pull request, make sure `pnpm test`, `pnpm typecheck`,
-`pnpm lint:check`, and `pnpm format:check` all pass.
+Before opening a pull request, run `pnpm build`, `pnpm check`, and
+`pnpm test:coverage` in that order. The examples use the built library for type
+checks. The individual check scripts remain available when needed.
+`pnpm build` uses `vp pack` to emit ESM files and declarations in `dist/`.
+
+## Zed and Commit Hooks
+
+Open the repository root in Zed with the Oxc extension installed. The committed
+`.zed/settings.json` uses the formatter configuration in `vite.config.ts` and
+enables formatting and safe lint fixes on save for JavaScript and TypeScript.
+
+`pnpm install` runs `prepare` to install the Vite+ hook dispatcher. The committed
+`.vite-hooks/pre-commit` runs `pnpm staged`, which checks and fixes staged files
+using the same configuration. Generated dispatcher files in `.vite-hooks/_/`
+are ignored. Run `pnpm prepare` to reinstall the dispatcher after cloning.
+
+To run an example, build the library at the repository root, then run
+`pnpm --dir examples/basic dev` (or choose another example directory).
 
 ## Code Style
 

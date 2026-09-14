@@ -11,11 +11,16 @@ This example demonstrates session management in Matchbox.
 
 ## Getting Started
 
-Install dependencies:
+Install dependencies and build the library from the repository root using the
+Node.js version in `.node-version`:
 
 ```bash
 pnpm install
+pnpm build
+cd examples/session
 ```
+
+This example shares the root pnpm workspace, lockfile, and Vite+ toolchain.
 
 Run the development server:
 

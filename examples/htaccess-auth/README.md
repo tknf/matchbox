@@ -11,11 +11,16 @@ from the `public/` directory.
 
 ## Getting Started
 
-Install dependencies:
+Install dependencies and build the library from the repository root using the
+Node.js version in `.node-version`:
 
 ```bash
 pnpm install
+pnpm build
+cd examples/htaccess-auth
 ```
+
+This example shares the root pnpm workspace, lockfile, and Vite+ toolchain.
 
 Run the development server:
 

@@ -1,4 +1,4 @@
-import { describe, expect, test } from "vitest";
+import { describe, expect, test } from "vite-plus/test";
 import { createAccessControlMiddleware } from "./access-control.js";
 import type { AccessControlConfig } from "./types.js";
 import { Hono } from "hono";

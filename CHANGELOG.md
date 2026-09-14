@@ -7,8 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+Planned release: **1.0.0**.
+
 ### Breaking Changes
 
+- **BREAKING:** `MatchboxPlugin` now requires Vite 8 and configures Hono JSX
+  through `oxc.jsx` instead of the deprecated `esbuild` options. Vite 7 and
+  earlier are no longer supported. Upgrade to Vite 8 or a Vite 8-based Vite+
+  toolchain before updating Matchbox. See the
+  [v1.0.0 migration guide](./README.md#migration-to-v100).
 - **BREAKING (SEC-010):** `$_SERVER` no longer includes environment
   variables, and `cgiinfo()`'s "$_SERVER" section no longer dumps them.
   Previously all environment variables (`process.env`/`c.env`) were merged
@@ -52,6 +59,9 @@ Gateway Timeout` if a page `component` takes longer than this to resolve.
 
 ### Changed
 
+- Development tooling now uses Vite+ for checks, tests, and library packaging.
+  The library and examples share a pnpm workspace, with Zed settings and a
+  pre-commit hook for staged-file checks. Public exports remain unchanged.
 - `saveSessionToCookie`/`getSessionFromCookie` are now `async` (needed for
   HMAC signing via Web Crypto). If you call them directly (outside of
   `createCgi`/`createCgiWithPages`), `await` the calls.

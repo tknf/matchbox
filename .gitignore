@@ -1,5 +1,7 @@
 node_modules
 .pnpm-store/
+.vite-hooks/_/
+.vite/
 
 .env
 dist

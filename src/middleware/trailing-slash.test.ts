@@ -1,4 +1,4 @@
-import { describe, expect, test } from "vitest";
+import { describe, expect, test } from "vite-plus/test";
 import { Hono } from "hono";
 import { applyTrailingSlashMiddleware } from "./trailing-slash.js";
 

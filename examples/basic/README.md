@@ -26,22 +26,20 @@ This basic example includes:
 
 ## Prerequisites
 
-- Node.js (v18 or higher recommended)
-- pnpm (or npm/yarn)
+- The Node.js version in the repository root `.node-version`
+- pnpm (the version declared in the root `package.json`)
 
 ## Installation
 
-1. Install dependencies:
+Install dependencies and build the library from the repository root:
 
 ```bash
 pnpm install
+pnpm build
+cd examples/basic
 ```
 
-Or if you're using npm:
-
-```bash
-npm install
-```
+This example shares the root pnpm workspace, lockfile, and Vite+ toolchain.
 
 ## Development
 
@@ -49,12 +47,6 @@ To start the development server:
 
 ```bash
 pnpm dev
-```
-
-Or with npm:
-
-```bash
-npm run dev
 ```
 
 The development server will start and you can access your application at `http://localhost:5173` (or the port shown in the terminal).
@@ -165,17 +157,11 @@ RewriteRule ^old-page$ /new-page R=301
 Redirect 301 /legacy /modern
 ```
 
-## Building for Production
+## Building the Library
 
-Build the project:
-
-```bash
-pnpm build
-# or
-npm run build
-```
-
-The built files will be in the `dist/` directory.
+Run `pnpm build` from the repository root to rebuild Matchbox in `dist/`.
+This example provides a development server; it does not define a production
+deployment target.
 
 ## Configuration
 

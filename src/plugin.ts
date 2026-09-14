@@ -37,9 +37,11 @@ export const MatchboxPlugin = (options: MatchboxPluginOptions = {}): Plugin => {
 					`${publicDir}/**/.htgroup`,
 				],
 				publicDir: publicDir,
-				esbuild: {
-					jsxImportSource: "hono/jsx",
-					jsx: "automatic",
+				oxc: {
+					jsx: {
+						runtime: "automatic",
+						importSource: "hono/jsx",
+					},
 				},
 				define: {
 					__MATCHBOX_CONFIG__: JSON.stringify(siteConfig),
