@@ -302,7 +302,7 @@ Check out the [`examples/`](./examples) directory for complete working examples:
   to `oxc.jsx` as described in the [Vite migration guide](https://vite.dev/guide/migration#javascript-transforms-by-oxc).
 - Existing `MatchboxPlugin()` calls, CGI pages, and import paths continue to work
   with the updated toolchain.
-- Review the other breaking changes in [CHANGELOG.md](./CHANGELOG.md#unreleased),
+- Review the other breaking changes in [CHANGELOG.md](./CHANGELOG.md#100---2026-09-14),
   including reading environment variables through `$_ENV` instead of `$_SERVER`.
 
 ## Migration from v0.2.x
