@@ -54,6 +54,26 @@ update the relevant docs in the same pull request: `README.md`, the affected
 guide under `docs/` (`api.md`, `htaccess.md`, `security.md`, `roadmap.md`),
 and `CHANGELOG.md` where appropriate.
 
+## Dependency Updates
+
+Dependabot checks for version updates on the first day of each month at 09:00
+Asia/Tokyo, as configured in [`.github/dependabot.yml`](./.github/dependabot.yml).
+The root package and all four examples share one npm configuration (Dependabot's
+ecosystem name for pnpm). Only patch and major version updates are allowed;
+routine minor updates do not open pull requests. Patch updates are grouped per ecosystem.
+Vite major updates are grouped across these directories; other major updates
+remain individual pull requests for separate review.
+
+Review minor releases when a needed feature or bug fix requires them, or during
+periodic maintenance. Skipping them also skips fixes that are only released on a
+newer minor line, including patch releases on that line.
+
+At most three npm and two GitHub Actions version-update pull requests can be open
+at once. These limits are not monthly quotas. Dependabot security updates, when
+enabled in the repository settings, are independent of the monthly schedule and
+these limits. The `allow.update-types` filter and the groups above apply only to
+version updates, so security fixes can still require a minor upgrade.
+
 ## Reporting Security Issues
 
 Please do not open public issues for security vulnerabilities. See the
