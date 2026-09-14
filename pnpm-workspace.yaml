@@ -1,5 +1,8 @@
 packages:
   - "examples/*"
+allowBuilds:
+  # Vite+'s optional esbuild fallback is unused; transforms and packing use Oxc/Rolldown.
+  esbuild: false
 catalog:
   vite: npm:@voidzero-dev/vite-plus-core@0.3.0
   vitest: 4.1.11
