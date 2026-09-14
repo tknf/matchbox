@@ -4,6 +4,8 @@
 		"module": "ESNext",
 		"lib": ["ES2022", "DOM", "DOM.Iterable"],
 		"moduleResolution": "Bundler",
+		"jsx": "react-jsx",
+		"jsxImportSource": "hono/jsx",
 		"allowImportingTsExtensions": true,
 		"allowSyntheticDefaultImports": true,
 		"esModuleInterop": true,
@@ -14,6 +16,6 @@
 		"resolveJsonModule": true,
 		"types": ["node", "vite/client"]
 	},
-	"include": ["src/**/*"],
+	"include": ["src/**/*", "mocks/**/*", "vite.config.ts"],
 	"exclude": ["node_modules", "dist"]
 }

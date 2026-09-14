@@ -4,7 +4,9 @@ export default ({ $_GET, $_SESSION }: CgiContext) => {
 	const action = $_GET.action;
 	const item = $_GET.item;
 
-	let cart = $_SESSION.cart || [];
+	let cart = Array.isArray($_SESSION.cart)
+		? $_SESSION.cart.filter((value: unknown): value is string => typeof value === "string")
+		: [];
 
 	if (action === "add" && item) {
 		cart.push(item);
@@ -41,9 +43,9 @@ export default ({ $_GET, $_SESSION }: CgiContext) => {
 			) : (
 				<>
 					<ul>
-						{cart.map((item: string, index: number) => (
+						{cart.map((cartItem: string, index: number) => (
 							<li key={index}>
-								{item} - <a href={`/cart.cgi?action=remove&item=${item}`}>Remove</a>
+								{cartItem} - <a href={`/cart.cgi?action=remove&item=${cartItem}`}>Remove</a>
 							</li>
 						))}
 					</ul>

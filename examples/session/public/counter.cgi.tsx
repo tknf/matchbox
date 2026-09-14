@@ -1,7 +1,7 @@
 import type { CgiContext } from "../../../dist";
 
 export default ({ $_SESSION }: CgiContext) => {
-	let count = $_SESSION.visitCount || 0;
+	let count = typeof $_SESSION.visitCount === "number" ? $_SESSION.visitCount : 0;
 	count++;
 	$_SESSION.visitCount = count;
 

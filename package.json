@@ -1,6 +1,6 @@
 {
 	"name": "@tknf/matchbox",
-	"version": "0.3.1",
+	"version": "1.0.0",
 	"description": "A Simple Web Server Framework",
 	"keywords": [
 		"cgi",
@@ -39,30 +39,33 @@
 		"registry": "https://registry.npmjs.org/"
 	},
 	"scripts": {
-		"test": "vitest run",
-		"test:coverage": "vitest run --coverage",
-		"lint:check": "oxlint",
-		"lint:fix": "oxlint --fix",
-		"format:check": "oxfmt --check",
-		"format:write": "oxfmt",
-		"typecheck": "tsc --noEmit -p tsconfig.json",
-		"watch": "tsup --watch",
-		"build": "tsup"
+		"check": "vp check",
+		"check:fix": "vp check --fix",
+		"test": "vp test run",
+		"test:coverage": "vp test run --coverage",
+		"lint:check": "vp lint",
+		"lint:fix": "vp lint --fix",
+		"format:check": "vp fmt --check",
+		"format:write": "vp fmt",
+		"typecheck": "vp check --no-fmt --no-lint",
+		"watch": "vp pack --watch",
+		"build": "vp pack",
+		"staged": "vp staged",
+		"prepare": "vp config --no-agent --no-editor"
 	},
 	"devDependencies": {
 		"@types/node": "^25.9.5",
-		"@vitest/coverage-v8": "^4.1.10",
+		"@vitest/coverage-v8": "catalog:",
 		"glob": "^13.0.6",
 		"hono": "^4.12.28",
-		"oxfmt": "^0.20.0",
-		"oxlint": "^1.35.0",
-		"tsup": "^8.5.1",
 		"typescript": "^5.9.3",
-		"vite": "^7.3.6",
-		"vitest": "^4.1.10"
+		"vite": "catalog:",
+		"vite-plus": "catalog:",
+		"vitest": "catalog:"
 	},
 	"peerDependencies": {
-		"hono": "*"
+		"hono": "*",
+		"vite": "^8.0.0"
 	},
 	"devEngines": {
 		"packageManager": {

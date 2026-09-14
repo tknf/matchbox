@@ -51,18 +51,20 @@ Shows how `.htaccess` rewrite/redirect rules and `.htpasswd` authentication work
 
 ## Getting Started
 
-Each example is a standalone project. To run an example:
+The examples are members of the root pnpm workspace and share its Vite+ toolchain
+and lockfile. Use the Node.js version in the root `.node-version`.
 
-1. Navigate to the example directory:
-
-   ```bash
-   cd examples/basic  # or session, file-upload, htaccess-auth
-   ```
-
-2. Install dependencies:
+1. Install dependencies and build the library from the repository root:
 
    ```bash
    pnpm install
+   pnpm build
+   ```
+
+2. Navigate to the example directory:
+
+   ```bash
+   cd examples/basic  # or session, file-upload, htaccess-auth
    ```
 
 3. Start the development server:

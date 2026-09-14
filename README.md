@@ -13,19 +13,20 @@ A modern CGI-style web framework built on [Hono](https://hono.dev). Brings Apach
 
 ## Installation
 
+Matchbox 1.x requires **Vite 8**, including Vite 8-based Vite+ toolchains.
+Vite 7 and earlier are no longer supported.
+
 ```bash
-npm add @tknf/matchbox hono
-# or
 pnpm add @tknf/matchbox hono
-# or
-yarn add @tknf/matchbox hono
+pnpm add -D vite@^8 @hono/vite-dev-server
 ```
 
 ## Quick Start
 
 ### 1. Configure Vite
 
-Create `vite.config.ts`:
+Create `vite.config.ts`. In a Vite+ project, import `defineConfig` from
+`"vite-plus"` instead of `"vite"`.
 
 ```typescript
 import devServer from "@hono/vite-dev-server";
@@ -291,6 +292,19 @@ Check out the [`examples/`](./examples) directory for complete working examples:
 - [API Reference](./docs/api.md) - Complete API documentation
 - [Roadmap](./docs/roadmap.md) - Planned features and improvements
 
+## Migration to v1.0.0
+
+- Upgrade the application's Vite dependency to version 8, or use a Vite 8-based
+  Vite+ toolchain, before updating Matchbox from 0.x to 1.x.
+- `MatchboxPlugin` now configures the automatic Hono JSX runtime with
+  `oxc.jsx.runtime` and `oxc.jsx.importSource`. Remove redundant `esbuild` JSX
+  settings from your Vite config; if you customize them, migrate those overrides
+  to `oxc.jsx` as described in the [Vite migration guide](https://vite.dev/guide/migration#javascript-transforms-by-oxc).
+- Existing `MatchboxPlugin()` calls, CGI pages, and import paths continue to work
+  with the updated toolchain.
+- Review the other breaking changes in [CHANGELOG.md](./CHANGELOG.md#unreleased),
+  including reading environment variables through `$_ENV` instead of `$_SERVER`.
+
 ## Migration from v0.2.x
 
 Version 0.3.0 introduced enhanced `.htaccess` parsing. If you're upgrading:
@@ -303,6 +317,10 @@ See the [migration guide](./docs/htaccess.md#migration-from-v02x-to-v030) for de
 
 ## Development
 
+Development uses Vite+ through pnpm scripts. Use the Node.js version in
+`.node-version`; the library and examples share one pnpm workspace.
+See [CONTRIBUTING.md](./CONTRIBUTING.md) for Zed and pre-commit hook setup.
+
 ```bash
 # Install dependencies
 pnpm install
@@ -313,8 +331,8 @@ pnpm test
 # Build
 pnpm run build
 
-# Type check
-pnpm run typecheck
+# Format, lint, and type check
+pnpm check
 ```
 
 ## License

@@ -1,4 +1,4 @@
-import { describe, expect, test } from "vitest";
+import { describe, expect, test } from "vite-plus/test";
 import { createHeaderMiddleware, securityHeaders, corsHeaders } from "./headers.js";
 import type { HeaderConfig } from "./types.js";
 import { Hono } from "hono";

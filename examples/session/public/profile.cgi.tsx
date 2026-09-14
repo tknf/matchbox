@@ -2,7 +2,14 @@ import type { CgiContext } from "../../../dist";
 
 export default ({ $_SESSION, redirect }: CgiContext) => {
 	const user = $_SESSION.user;
-	if (!user) {
+	if (
+		typeof user !== "object" ||
+		user === null ||
+		!("username" in user) ||
+		typeof user.username !== "string" ||
+		!("loginTime" in user) ||
+		typeof user.loginTime !== "string"
+	) {
 		return redirect("/login.cgi");
 	}
 

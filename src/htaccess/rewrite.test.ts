@@ -1,4 +1,4 @@
-import { describe, expect, test } from "vitest";
+import { describe, expect, test } from "vite-plus/test";
 import { Hono } from "hono";
 import { createRewriteMiddleware, evaluateConditions } from "./rewrite.js";
 import type { RewriteRuleConfig, RewriteCondition } from "./types.js";

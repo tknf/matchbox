@@ -1,4 +1,4 @@
-import { describe, expect, test } from "vitest";
+import { describe, expect, test } from "vite-plus/test";
 import { createCgiWithPages, type Page, type CgiContext } from "./cgi.js";
 import { parseHtaccess } from "./htaccess/parser.js";
 import type { HtaccessConfig } from "./htaccess/types.js";

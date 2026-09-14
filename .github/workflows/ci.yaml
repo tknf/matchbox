@@ -6,7 +6,7 @@ on:
     branches: ["*"]
     paths-ignore:
       - "docs/**"
-      - ".vscode/**"
+      - ".zed/**"
       - "README.md"
       - ".gitignore"
       - "LICENSE"
@@ -17,17 +17,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: voidzero-dev/setup-vp@v1.20.0
         with:
-          node-version: "20"
-      - uses: pnpm/action-setup@v4
-        with:
-          version: 10
-      - run: pnpm install
+          node-version-file: .node-version
+          cache: true
+          run-install: false
+      - run: pnpm install --frozen-lockfile
       - run: pnpm run build
-      - run: pnpm run typecheck
-      - run: pnpm run lint:check
-      - run: pnpm run format:check
+      - run: pnpm check
       # Informational only: `pnpm audit` can flag advisories in dev/transitive
       # deps with no fixed release yet, so a hard failure here would block
       # merges for issues outside our control. `--prod` limits the scan to
@@ -41,11 +38,10 @@ jobs:
     needs: [main]
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: voidzero-dev/setup-vp@v1.20.0
         with:
-          node-version: "20"
-      - uses: pnpm/action-setup@v4
-        with:
-          version: 10
-      - run: pnpm install
+          node-version-file: .node-version
+          cache: true
+          run-install: false
+      - run: pnpm install --frozen-lockfile
       - run: pnpm run test:coverage
