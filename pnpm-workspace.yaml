@@ -4,7 +4,7 @@ allowBuilds:
   # Vite+'s optional esbuild fallback is unused; transforms and packing use Oxc/Rolldown.
   esbuild: false
 catalog:
-  "@types/node": ^24.13.4
+  "@types/node": ^26.6.3
   vite: npm:@voidzero-dev/vite-plus-core@0.3.0
   vitest: 4.1.11
   vite-plus: 0.3.0
